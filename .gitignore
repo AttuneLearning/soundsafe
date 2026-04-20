@@ -1,0 +1,42 @@
+# Node / pnpm
+node_modules/
+.pnpm-store/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Rust / Cargo
+target/
+**/*.rs.bk
+
+# wasm-pack output
+pkg/
+
+# Test / coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Claude Code local state
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
