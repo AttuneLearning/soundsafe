@@ -12,9 +12,13 @@ Central hub for Soundsafe architecture documentation.
 
 ## Flagship documents
 
+Narrative design specs live alongside this tree at `../specs/`:
+
 | Doc | Covers |
 |---|---|
-| [sound-delivery.md](sound-delivery.md) | End-to-end: pack format, CDN flow, WASM audio pipeline, caching, update channel, offline behavior, threat model, therapist-plugin seams. |
+| [sound-delivery.md](../specs/sound-delivery.md) | End-to-end: pack format, CDN flow, WASM audio pipeline, caching, update channel, offline behavior, threat model, therapist-plugin seams. |
+| [feature-matrix.md](../specs/feature-matrix.md) | Tier-by-tier feature list the architecture must support. |
+| [differentiation.md](../specs/differentiation.md) | Competitive positioning and product differentiation. |
 
 ## How this is organized
 
@@ -24,9 +28,8 @@ Central hub for Soundsafe architecture documentation.
 
 ## Skill integration
 
-The `/adr` skill (from the `ai_team_config` submodule) reads and writes this tree. The skill's default path is `dev_communication/shared/architecture/` — Soundsafe uses `docs/architecture/` via a project-local override. See ADR-014.
+The `/adr` skill (from the `ai_team_config` submodule) reads and writes this tree. Soundsafe uses the skill's default layout at `dev_communication/shared/architecture/`; no project-local `.adr-config.yml` is needed. See ADR-019 for the current decision (supersedes ADR-014).
 
 ## Related
 
-- [Memory vault](../../memory/index.md) — broader knowledge including entities, patterns, context, session notes.
-- [Feature matrix](../product/feature-matrix.md) — tier-by-tier feature list the architecture has to support.
+- [Memory vault](../../../memory/index.md) — broader knowledge including entities, patterns, context, session notes.

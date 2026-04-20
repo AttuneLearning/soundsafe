@@ -12,9 +12,9 @@ Rust/WASM audio core, React/TypeScript UI, encrypted sound packs delivered from 
 
 | If you are… | Read |
 |---|---|
-| Trying to understand the product | [`docs/product/feature-matrix.md`](docs/product/feature-matrix.md) |
-| Trying to understand the architecture | [`docs/architecture/sound-delivery.md`](docs/architecture/sound-delivery.md) |
-| Looking for the rationale behind a design choice | [`docs/architecture/decision-log.md`](docs/architecture/decision-log.md) |
+| Trying to understand the product | [`dev_communication/shared/specs/feature-matrix.md`](dev_communication/shared/specs/feature-matrix.md) |
+| Trying to understand the architecture | [`dev_communication/shared/specs/sound-delivery.md`](dev_communication/shared/specs/sound-delivery.md) |
+| Looking for the rationale behind a design choice | [`dev_communication/shared/architecture/decision-log.md`](dev_communication/shared/architecture/decision-log.md) |
 | Working with Claude Code on this repo | [`CLAUDE.md`](CLAUDE.md) |
 
 ## Scope of v1

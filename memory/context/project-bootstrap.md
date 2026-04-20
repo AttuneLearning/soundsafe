@@ -24,9 +24,9 @@ This context entry captures what was decided during the initial planning phase �
 
 Full architectural rationale is in:
 
-- [[../../docs/architecture/decision-log]] — indexes all 17 seed ADRs.
-- [[../../docs/architecture/sound-delivery]] — end-to-end delivery pipeline.
-- [[../../docs/product/feature-matrix]] — master feature list by tier.
+- [[../../dev_communication/shared/architecture/decision-log]] — indexes the ADR set.
+- [[../../dev_communication/shared/specs/sound-delivery]] — end-to-end delivery pipeline.
+- [[../../dev_communication/shared/specs/feature-matrix]] — master feature list by tier.
 - `/home/adam/.claude/plans/cached-wishing-iverson.md` — the approved bootstrap plan.
 
 ## Implications
@@ -37,7 +37,7 @@ Full architectural rationale is in:
 
 ## Open questions
 
-Catalogued as gaps in [[../../docs/architecture/gaps/index]]. Short list:
+Catalogued as gaps in [[../../dev_communication/shared/architecture/gaps/index]]. Short list:
 
 - OPFS quota policy for low-storage devices.
 - JWT revocation beyond short TTL.

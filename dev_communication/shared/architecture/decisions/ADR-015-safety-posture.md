@@ -45,4 +45,4 @@ Four safety layers are **always enabled** in all tiers:
 ## References
 
 - Related ADRs: ADR-004 (self-guided posture), ADR-008 (tier split), ADR-011 (local state for safety counters).
-- `docs/product/feature-matrix.md` has the full per-tier table including default values.
+- `dev_communication/shared/specs/feature-matrix.md` has the full per-tier table including default values.

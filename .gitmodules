@@ -1,0 +1,3 @@
+[submodule "ai_team_config"]
+	path = ai_team_config
+	url = git@github.com:AttuneLearning/ai_team_config.git

@@ -1,0 +1,1 @@
+../../../ai_team_config/skills/adr/SKILL.md

@@ -10,15 +10,16 @@ Soundsafe is a sound-desensitization PWA. Users pick an environmental trigger (d
 
 | Document | Path |
 |---|---|
-| Sound-delivery architecture | `docs/architecture/sound-delivery.md` |
-| Master feature matrix (tiers) | `docs/product/feature-matrix.md` |
-| Architecture index | `docs/architecture/index.md` |
-| ADR decision log | `docs/architecture/decision-log.md` |
+| Sound-delivery architecture | `dev_communication/shared/specs/sound-delivery.md` |
+| Master feature matrix (tiers) | `dev_communication/shared/specs/feature-matrix.md` |
+| Product differentiation | `dev_communication/shared/specs/differentiation.md` |
+| Architecture index | `dev_communication/shared/architecture/index.md` |
+| ADR decision log | `dev_communication/shared/architecture/decision-log.md` |
 | Bootstrap plan | `/home/adam/.claude/plans/cached-wishing-iverson.md` |
 
 ## Locked architectural decisions (summary)
 
-See `docs/architecture/decisions/` for full ADRs. Quick index:
+See `dev_communication/shared/architecture/decisions/` for full ADRs. Quick index:
 
 - **ADR-001** Web/PWA for MVP; Tauri/mobile later.
 - **ADR-002** React + TypeScript + `wasm-bindgen`.
@@ -33,11 +34,12 @@ See `docs/architecture/decisions/` for full ADRs. Quick index:
 - **ADR-011** Local-only progress (IndexedDB + OPFS).
 - **ADR-012** No user audio upload in v1.
 - **ADR-013** Product name: Soundsafe.
-- **ADR-014** `/memory` + `/adr` skills via `ai_team_config` submodule (ADR path made project-local).
+- **ADR-014** `/memory` + `/adr` skills via `ai_team_config` submodule (**Superseded by ADR-019**).
 - **ADR-015** Safety posture: disclaimer + panic-stop + volume ceiling + caps; tunable only above free.
 - **ADR-016** Research-driven transforms + signature "extreme pitch-shift LFO" + binaural-beats generator.
 - **ADR-017** Music ships as curated packs in v1; no procedural/AI generation.
 - **ADR-018** TDD by default; `cargo nextest` + `bacon` + `proptest` (Rust), Vitest + Playwright (TS); `wasm-bindgen-test` reserved for boundary.
+- **ADR-019** `/adr` skill made path-configurable upstream; Soundsafe uses default `dev_communication/shared/architecture/` layout.
 
 ## Design principles (BLOCKING)
 
@@ -48,12 +50,18 @@ See `docs/architecture/decisions/` for full ADRs. Quick index:
 
 ## Skills
 
+All six skills from the `ai_team_config` submodule are installed on this repo via the canonical platform setup scripts:
+
 | Skill | Purpose |
 |---|---|
 | `/memory` | Manage the extended memory vault at `memory/`. |
-| `/adr` | Manage ADRs at `docs/architecture/`. (Path is project-local here, not the upstream default.) |
+| `/adr` | Manage ADRs at `dev_communication/shared/architecture/` (upstream default — no project-local override). |
+| `/comms` | Inter-team communication via `dev_communication/{team}/`. |
+| `/context` | Pre-implementation context loading from `memory/` + `dev_communication/shared/`. |
+| `/reflect` | Post-implementation reflection; writes to `memory/` and `dev_communication/shared/architecture/suggestions/`. |
+| `/refine` | Pattern refinement and promotion. |
 
-Both skills live in the `ai_team_config` submodule (added later) and are exposed via `.claude/commands/*.md` symlinks.
+Skill symlinks live at `.claude/commands/*.md` (Claude Code) and `.codex-workflow/skills/*/SKILL.md` (Codex). Both sets are created by `ai_team_config/platforms/{claude,codex}/setup.sh` and point at the same canonical `ai_team_config/skills/<name>/SKILL.md` files. To reinstall or refresh, run the setup scripts from the repo root with an **absolute** path (relative `PROJECT_ROOT` produces dangling symlinks — upstream bug, worked around, tracked as follow-up).
 
 ## Quick reference
 
@@ -68,9 +76,10 @@ wasm-pack build packages/rust-core   # build the WASM artifact
 
 ## File paths
 
-- **Architecture decisions:** `docs/architecture/decisions/`
-- **Architecture gaps:** `docs/architecture/gaps/index.md`
-- **Architecture suggestions:** `docs/architecture/suggestions/`
-- **Product specs:** `docs/product/`
+- **Architecture decisions:** `dev_communication/shared/architecture/decisions/`
+- **Architecture gaps:** `dev_communication/shared/architecture/gaps/index.md`
+- **Architecture suggestions:** `dev_communication/shared/architecture/suggestions/`
+- **Narrative specs (architecture + product):** `dev_communication/shared/specs/`
 - **Memory vault:** `memory/`
-- **Agent skills (after submodule add):** `ai_team_config/skills/`
+- **Agent skills:** `ai_team_config/skills/`
+- **Project-local skill configs:** `.<tool>-config.yml` at repo root (none currently needed — Soundsafe uses all defaults).

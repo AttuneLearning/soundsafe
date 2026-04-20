@@ -1,8 +1,11 @@
 # ADR-014: Memory + ADR skills via ai_team_config submodule
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2026-04-19
 **Domain:** Tooling
+**Superseded by:** [ADR-019](ADR-019-adr-skill-path-configurable.md)
+
+> **Note (2026-04-20):** ADR-019 replaces this decision. The planned project-local `docs/architecture/` override was never implemented. Instead, the `/adr` skill was patched upstream to accept a project-local `.adr-config.yml`, and Soundsafe adopted the default `dev_communication/shared/architecture/` layout. Read ADR-019 for the current state; this ADR is retained for history only.
 
 ## Context
 

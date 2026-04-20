@@ -2,6 +2,12 @@
 
 Chronological list of architecture decisions. Each row links to the full ADR.
 
+## Current supersessions
+
+- **[ADR-019](decisions/ADR-019-adr-skill-path-configurable.md)** supersedes **[ADR-014](decisions/ADR-014-memory-adr-skills.md)** — `/adr` skill made path-configurable upstream; Soundsafe adopts the default `dev_communication/shared/architecture/` layout instead of overriding to `docs/architecture/`.
+
+## All decisions
+
 | ID | Date | Title | Status | Domain |
 |---|---|---|---|---|
 | ADR-001 | 2026-04-19 | [Platform target: Web/PWA for MVP](decisions/ADR-001-platform-target-web-pwa.md) | Accepted | Platform |
@@ -17,11 +23,12 @@ Chronological list of architecture decisions. Each row links to the full ADR.
 | ADR-011 | 2026-04-19 | [Local-only progress (IndexedDB + OPFS)](decisions/ADR-011-local-only-progress.md) | Accepted | Storage |
 | ADR-012 | 2026-04-19 | [No user audio upload in v1](decisions/ADR-012-no-user-audio-v1.md) | Accepted | Scope |
 | ADR-013 | 2026-04-19 | [Product name: Soundsafe](decisions/ADR-013-product-name.md) | Accepted | Product |
-| ADR-014 | 2026-04-19 | [Memory + ADR skills via ai_team_config submodule](decisions/ADR-014-memory-adr-skills.md) | Accepted | Tooling |
+| ADR-014 | 2026-04-19 | [Memory + ADR skills via ai_team_config submodule](decisions/ADR-014-memory-adr-skills.md) | Superseded by [ADR-019](decisions/ADR-019-adr-skill-path-configurable.md) | Tooling |
 | ADR-015 | 2026-04-19 | [Safety posture: disclaimer + panic + ceiling + caps](decisions/ADR-015-safety-posture.md) | Accepted | Safety |
 | ADR-016 | 2026-04-19 | [Transform library: research-driven + signature transforms](decisions/ADR-016-transform-library.md) | Accepted | Audio |
 | ADR-017 | 2026-04-19 | [Music ships as curated packs in v1; no generation](decisions/ADR-017-music-packs-not-generation.md) | Accepted | Content |
 | ADR-018 | 2026-04-20 | [TDD as default; Rust + TS test stack](decisions/ADR-018-tdd-test-strategy.md) | Accepted | Tooling |
+| ADR-019 | 2026-04-20 | [/adr skill path configurable upstream; Soundsafe on default layout](decisions/ADR-019-adr-skill-path-configurable.md) | Accepted | Tooling |
 
 ---
 

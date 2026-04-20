@@ -37,4 +37,4 @@ The boundary is effectively *"can the user author?"*
 ## References
 
 - Related ADRs: ADR-015 (safety-control tunability is also Tier-3-gated).
-- `docs/product/feature-matrix.md` for the full per-feature split.
+- `dev_communication/shared/specs/feature-matrix.md` for the full per-feature split.

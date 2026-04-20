@@ -30,8 +30,8 @@ Background information and foundational knowledge that doesn't fit neatly into e
 
 ## Related
 
-- [Architecture index](../docs/architecture/index.md)
-- [Feature matrix](../docs/product/feature-matrix.md)
+- [Architecture index](../dev_communication/shared/architecture/index.md)
+- [Feature matrix](../dev_communication/shared/specs/feature-matrix.md)
 - [Project instructions](../CLAUDE.md)
 
 ## How to use this vault
@@ -48,11 +48,11 @@ Background information and foundational knowledge that doesn't fit neatly into e
 - `#pattern` — reusable patterns
 - `#session` — session summaries
 - `#context` — background information
-- `#decision` — key decisions (ADRs live under `docs/architecture/decisions/`)
+- `#decision` — key decisions (ADRs live under `dev_communication/shared/architecture/decisions/`)
 - `#safety` — safety-related memory
 - `#audio` — audio/DSP-related memory
 - `#security` — security-related memory
 
 ## Skill integration
 
-Managed by the `/memory` skill from the `ai_team_config` submodule (after that submodule is added; see ADR-014).
+Managed by the `/memory` skill from the `ai_team_config` submodule. See ADR-019 (supersedes ADR-014) for the current skill-integration decision.

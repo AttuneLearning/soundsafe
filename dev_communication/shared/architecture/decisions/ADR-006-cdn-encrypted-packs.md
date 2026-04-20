@@ -48,4 +48,4 @@ v1 backend is:
 ## References
 
 - Related ADRs: ADR-007 (entitlements), ADR-010 (pack encryption).
-- `docs/architecture/sound-delivery.md` for the full delivery pipeline.
+- `dev_communication/shared/specs/sound-delivery.md` for the full delivery pipeline.

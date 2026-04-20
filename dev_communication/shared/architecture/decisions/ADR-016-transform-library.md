@@ -66,4 +66,4 @@ Each transform implements a common `Transform` trait in `packages/rust-core/src/
 ## References
 
 - Related ADRs: ADR-008 (tier access to transforms), ADR-015 (safety rails apply to all transforms).
-- `docs/product/feature-matrix.md` for the full tier-by-tier transform availability.
+- `dev_communication/shared/specs/feature-matrix.md` for the full tier-by-tier transform availability.
