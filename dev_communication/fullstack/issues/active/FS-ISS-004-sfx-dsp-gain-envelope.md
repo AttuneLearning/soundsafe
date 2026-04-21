@@ -138,5 +138,5 @@ Local gate verification (all green):
 - `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
 
 - Files: `Cargo.toml`, `crates/sfx-dsp/Cargo.toml`, `crates/sfx-dsp/src/lib.rs`, `crates/sfx-dsp/src/transform.rs` (new), `crates/sfx-dsp/src/transforms/mod.rs` (new), `crates/sfx-dsp/src/transforms/gain.rs` (new, ~330 lines including tests).
-- Commit: pending (will be filled in after commit).
-- Push: pending.
+- Commit: `105cc45` ("M1.3 (FS-ISS-004): Transform trait + Gain envelope")
+- Push: pushed to `origin/main` as commit `105cc45` on 2026-04-21.
