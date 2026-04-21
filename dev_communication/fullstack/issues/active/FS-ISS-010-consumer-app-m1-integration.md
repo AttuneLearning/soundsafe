@@ -110,7 +110,8 @@ Local verification:
 - `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
 
 - Files: `packages/consumer-app/package.json` (vitest + happy-dom + testing-library devdeps), `packages/consumer-app/vitest.config.ts` (new), `packages/consumer-app/src/audio-context.tsx` (new), `packages/consumer-app/src/components/M1Demo.tsx` (new), `packages/consumer-app/src/components/PanicStop.tsx` (wired), `packages/consumer-app/src/App.tsx` (rewired for M1), `packages/consumer-app/src/__tests__/App.test.tsx` (new).
-- Commit: pending
+- Commit: `cbba752` ("M1.9 (FS-ISS-010): consumer-app M1 demo flow")
+- Push: pushed to `origin/main` as commit `cbba752` on 2026-04-21.
 
 ## QA Verification Evidence
 
