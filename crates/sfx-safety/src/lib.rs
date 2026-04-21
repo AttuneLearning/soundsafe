@@ -93,14 +93,7 @@ impl Ceiling {
     pub const fn dbfs(self) -> f32 { self.0 }
 
     pub fn new(dbfs: f32) -> Self {
-        let clamped = if dbfs < Self::MIN_DBFS {
-            Self::MIN_DBFS
-        } else if dbfs > Self::MAX_DBFS {
-            Self::MAX_DBFS
-        } else {
-            dbfs
-        };
-        Self(clamped)
+        Self(dbfs.clamp(Self::MIN_DBFS, Self::MAX_DBFS))
     }
 }
 
@@ -112,22 +105,15 @@ impl Ceiling {
 pub struct RampUp(NonZeroU32);
 
 impl RampUp {
-    pub const DEFAULT: Self = Self(unsafe { NonZeroU32::new_unchecked(3000) });
+    pub const DEFAULT: Self = Self(NonZeroU32::new(3000).unwrap());
     pub const MIN_MS: u32 = 250;
     pub const MAX_MS: u32 = 30_000;
 
     pub const fn ms(self) -> u32 { self.0.get() }
 
     pub fn new(ms: u32) -> Self {
-        let clamped = if ms < Self::MIN_MS {
-            Self::MIN_MS
-        } else if ms > Self::MAX_MS {
-            Self::MAX_MS
-        } else {
-            ms
-        };
-        // SAFETY: clamped is at least MIN_MS (250), which is non-zero.
-        Self(unsafe { NonZeroU32::new_unchecked(clamped) })
+        let clamped = ms.clamp(Self::MIN_MS, Self::MAX_MS);
+        Self(NonZeroU32::new(clamped).expect("clamped ≥ MIN_MS > 0"))
     }
 }
 
@@ -139,21 +125,15 @@ impl RampUp {
 pub struct ExposureCap(NonZeroU32);
 
 impl ExposureCap {
-    pub const DEFAULT: Self = Self(unsafe { NonZeroU32::new_unchecked(900) });
+    pub const DEFAULT: Self = Self(NonZeroU32::new(900).unwrap());
     pub const MIN_SECONDS: u32 = 60;
     pub const MAX_SECONDS: u32 = 7200;
 
     pub const fn seconds(self) -> u32 { self.0.get() }
 
     pub fn new(seconds: u32) -> Self {
-        let clamped = if seconds < Self::MIN_SECONDS {
-            Self::MIN_SECONDS
-        } else if seconds > Self::MAX_SECONDS {
-            Self::MAX_SECONDS
-        } else {
-            seconds
-        };
-        Self(unsafe { NonZeroU32::new_unchecked(clamped) })
+        let clamped = seconds.clamp(Self::MIN_SECONDS, Self::MAX_SECONDS);
+        Self(NonZeroU32::new(clamped).expect("clamped ≥ MIN_SECONDS > 0"))
     }
 }
 

@@ -1,7 +1,9 @@
 [toolchain]
-# Rust 1.85 is the first stable with edition 2024, which is required by
-# transitive deps (e.g., clap_lex 1.1.0). Bumped from 1.82.
-channel = "1.85"
+# Track current stable. Bumped to 1.95 on 2026-04-21 so current ecosystem
+# tooling (cargo-nextest ≥0.9.133 requires ≥1.91, etc.) builds without
+# per-tool version pins. Bump when a newer stable is convenient; don't
+# hold back unless there's a specific reason.
+channel = "1.95"
 components = ["rustfmt", "clippy"]
 targets = ["wasm32-unknown-unknown"]
 profile = "minimal"

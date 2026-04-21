@@ -17,7 +17,7 @@ members = [
 [workspace.package]
 version = "0.0.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.95"
 license = "Apache-2.0"
 publish = false
 repository = "https://github.com/AttuneLearning/soundsafe"
