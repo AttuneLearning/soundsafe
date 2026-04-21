@@ -52,7 +52,6 @@ impl core::fmt::Display for VaultError {
     }
 }
 
-#[cfg(feature = "std")]
 impl std::error::Error for VaultError {}
 
 /// AES-256-GCM pack vault.

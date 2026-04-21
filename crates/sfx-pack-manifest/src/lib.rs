@@ -118,7 +118,6 @@ impl core::fmt::Display for ManifestError {
     }
 }
 
-#[cfg(feature = "std")]
 impl std::error::Error for ManifestError {}
 
 impl From<serde_json::Error> for ManifestError {
