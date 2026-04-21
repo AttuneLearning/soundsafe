@@ -58,7 +58,7 @@ When this issue is closed by Fullstack-QA, trigger the M1 exit review:
 
 ## Dev Handoff to QA
 
-- [x] Development Complete (scaffolding landed — see narrowing below)
+- [x] Development Complete
 - [x] Awaiting QA
 - [x] Typecheck passed (`pnpm -r typecheck` — 9 packages)
 - [x] Unit tests passed (`pnpm test` — 37)
