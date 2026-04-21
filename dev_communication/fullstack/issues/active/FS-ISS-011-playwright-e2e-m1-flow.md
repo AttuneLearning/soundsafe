@@ -119,7 +119,8 @@ Local verification (what this dev session could run):
 - `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
 
 - Files: `packages/consumer-app/package.json` (e2e scripts + Playwright + axe devdeps), `packages/consumer-app/playwright.config.ts` (new), `packages/consumer-app/e2e/fixtures/shim.ts` (new), `packages/consumer-app/e2e/m1-flow.spec.ts` (new), `.github/workflows/ci.yml` (new e2e job).
-- Commit: pending
+- Commit: `e5028b9` ("M1.10 (FS-ISS-011): Playwright E2E scaffolding + CI wiring")
+- Push: pushed to `origin/main` as commit `e5028b9` on 2026-04-21.
 
 ## QA Verification Evidence
 
