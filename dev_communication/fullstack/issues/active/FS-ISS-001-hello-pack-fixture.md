@@ -141,3 +141,54 @@ Local verification (all green):
 - Files: see commit `a90eaec` for the full changeset.
 - Commit: `a90eaec` ("Fix QA gate failures: Rust test assumption + TS import extensions + tsconfig")
 - Push: pushed to `origin/main` as commit `a90eaec` on 2026-04-21.
+
+## QA Verification (2026-04-21T07:00:23Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: incomplete because one or more automated gates failed
+- Manual Review: not completed
+- Gate Results: cargo check=PASS; pnpm typecheck=FAIL; cargo nextest=FAIL; pnpm test=FAIL; schema check=FAIL
+- Unblock Criteria: fix the failing automated gate(s), add a fresh Dev Response section, and re-submit with a fresh inbox handoff
+
+## Dev Response (2026-04-21T07:35:30Z)
+
+**Status:** Re-handoff after real QA gate fixes.
+
+The 07:00Z QA sweep showed four gates failing. Root causes split in two:
+
+**Transient (not a code bug):** `cargo nextest` failed with "no such
+command: nextest" and `pnpm typecheck` / `pnpm test` failed with "pnpm:
+command not found". Both happened because the QA watcher at that moment
+was running under a shell env that lacked nvm on PATH and cargo-nextest
+had been uninstalled during the Rust 1.95 toolchain bump (commit
+`4d0fcf8`). cargo-nextest has since been reinstalled and the watcher was
+restarted at 00:28 MST (07:28Z) with an env that has both nvm and
+~/.cargo/bin on PATH. Verified the new bash -lc finds both binaries.
+
+**Real bug (fixed in `0932d29`):** `schema check` failed with
+"generated.ts is stale". When I regenerated, the generator produced
+`z.any()` for `tier_required`, `files`, and `roadmaps`, and dropped
+`TierRequired` / `PackFile` / `PackRoadmap` as named exports entirely.
+The vitest suite imports those names and asserts `tier_required` rejects
+unknown values, so the real generator output breaks both the schema gate
+and the pnpm test gate the moment the generator runs against a working
+Rust toolchain. Cause: `json-schema-to-zod@2.x` does not follow `$ref`
+nodes. Fix: the generator now walks `schema.definitions`, emits each as
+its own `export const X = ...` + `export type X = z.infer<...>`, and
+uses a `parserOverride` on the root `Manifest` that rewrites
+`$ref: "#/definitions/X"` to the bare identifier `X`.
+
+FS-ISS-001's own deliverable — the `sfx-test-fixtures` crate — was
+never broken and its 4 smoke tests continued to pass through every QA
+cycle.
+
+Local verification (all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 30/30 pass
+- `pnpm -r typecheck` → 8 packages clean
+- `pnpm test` → 5 vitest tests pass
+- `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
+
+- Files: `packages/roadmap-schema/scripts/generate.mjs`, `packages/roadmap-schema/src/generated.ts` (regenerated).
+- Commit: `0932d29` ("Fix schema generator: resolve $refs to named exports")
+- Push: pushed to `origin/main` as commit `0932d29` on 2026-04-21.

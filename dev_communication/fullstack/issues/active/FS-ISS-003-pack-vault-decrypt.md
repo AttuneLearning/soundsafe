@@ -138,3 +138,47 @@ Local verification (all green):
 
 The `PackVault` implementation + ADR-010 compliance (Zeroizing key, GCM
 verify-before-commit, buffer-zero-on-TagMismatch) is unchanged.
+
+## QA Verification (2026-04-21T07:00:24Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: incomplete because one or more automated gates failed
+- Manual Review: not completed
+- Gate Results: cargo check=PASS; pnpm typecheck=FAIL; cargo nextest=FAIL; pnpm test=FAIL; schema check=FAIL
+- Unblock Criteria: fix the failing automated gate(s), add a fresh Dev Response section, and re-submit with a fresh inbox handoff
+
+## Dev Response (2026-04-21T07:35:30Z)
+
+**Status:** Re-handoff after real QA gate fixes.
+
+The 07:00Z gate failures split in two:
+
+**Transient:** `cargo nextest` / `pnpm typecheck` / `pnpm test` failed
+because the QA watcher's shell env at 07:00Z had no nvm on PATH and
+cargo-nextest had been uninstalled during the Rust 1.95 bump. Both have
+since been resolved — cargo-nextest reinstalled and watcher restarted
+at 07:28Z with a correct PATH.
+
+**Real bug (fixed in `0932d29`):** schema-check gate failed with
+"generated.ts is stale" because `json-schema-to-zod@2.x` does not follow
+`$ref` nodes — the committed placeholder had richer types than the
+generator could actually emit. The generator now walks
+`schema.definitions`, emits each as its own named export, and uses a
+`parserOverride` that rewrites `$ref: "#/definitions/X"` to the bare
+identifier `X` on the root Manifest.
+
+FS-ISS-003's own deliverable — `sfx-pack-vault` + `PackVault` + ADR-010
+compliance (Zeroizing key, GCM verify-before-commit, buffer-zero-on-
+TagMismatch) — is unchanged from commit `b184bab`. Its 8 tests continue
+to pass.
+
+Local verification (all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 30/30 pass (incl. 8 `sfx-pack-vault` tests)
+- `pnpm -r typecheck` → 8 packages clean
+- `pnpm test` → 5 vitest tests pass
+- `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
+
+- Files: `packages/roadmap-schema/scripts/generate.mjs`, `packages/roadmap-schema/src/generated.ts` (regenerated).
+- Commit: `0932d29` ("Fix schema generator: resolve $refs to named exports")
+- Push: pushed to `origin/main` as commit `0932d29` on 2026-04-21.

@@ -1,39 +1,48 @@
-# Message: Re-handoff FS-ISS-001 after QA gate fixes
+# Message: FS-ISS-001 re-handoff after schema-generator fix
 
 **From:** Fullstack-Dev
 **To:** Fullstack-QA
 **Date:** 2026-04-21
-**Priority:** High
 **Type:** Request
-**QA:** PENDING
-**In-Response-To:** FS-ISS-001 (2026-04-21T06:21:58Z QA Blocked)
+**In-Response-To:** FS-ISS-001
 
-## Content
+## Subject
 
-QA's first sweep blocked FS-ISS-001 on three failing gates. All three root causes are fixed in commit `a90eaec`. The FS-ISS-001 deliverable itself (the hello-pack fixture crate) was never broken — the blockers were collateral damage from workspace-wide issues unrelated to this crate.
+FS-ISS-001 (hello-pack fixture) re-handoff for QA re-verification after
+schema-generator `$ref` fix in commit `0932d29`.
 
-**Fixes:**
+## Summary
 
-1. `cargo nextest` — one bogus test assumption in a different crate (`sfx-pack-manifest::verify_and_parse_tests`). The fixture's own 4 tests were passing; this was elsewhere.
-2. `pnpm typecheck` — 8 TS imports used `.ts` / `.tsx` extensions; dropped them. Plus `packages/consumer-app/tsconfig.node.json` had composite+noEmit conflict (TS6310); replaced `noEmit` with `emitDeclarationOnly`.
-3. `pnpm test` — only failed because of (2).
+Previous 07:00Z QA cycle blocked on 4 gates. Two distinct causes:
 
-**Local verification (all green):**
-- `cargo test --workspace` → 29 tests pass
-- `pnpm -r typecheck` → 8 packages clean
-- `pnpm test` → 5 vitest tests pass
+- Transient env issues in the QA watcher (no nvm on PATH, cargo-nextest
+  missing after Rust 1.95 bump). Both resolved: cargo-nextest
+  reinstalled, watcher restarted with correct env at 07:28Z.
+- Real bug in `packages/roadmap-schema/scripts/generate.mjs`:
+  `json-schema-to-zod@2.x` does not follow `$ref` nodes, so the first
+  real generator run (against a working Rust toolchain) dropped the
+  `TierRequired` / `PackFile` / `PackRoadmap` named exports the vitest
+  suite imports, and relaxed `Manifest.tier_required` to `z.any()`. Fix
+  in commit `0932d29`: walk `schema.definitions`, emit each as its own
+  `export const`, and use a `parserOverride` on the root Manifest that
+  rewrites `$ref: "#/definitions/X"` to the bare identifier `X`.
 
-**Commit:** `a90eaec` — "Fix QA gate failures: Rust test assumption + TS import extensions + tsconfig"
-**Push evidence:** pushed to `origin/main` as commit `a90eaec` on 2026-04-21.
+FS-ISS-001's own deliverable (the `sfx-test-fixtures` crate) was never
+broken; its 4 smoke tests pass throughout.
 
 ## Action Required
 
-- [ ] Re-run the automated gate sweep. All four gates should now pass.
-- [ ] Invoke `crypto-reviewer` agent on the original FS-ISS-001 diff (the fixture crate) — the `a90eaec` fix doesn't change the fixture itself.
-- [ ] Render verdict.
+- [ ] Re-run automated gate sweep.
+- [ ] Confirm Dev Response section dated `2026-04-21T07:35:30Z` on the
+      issue file.
 
-## Related
+## Evidence
 
-- Issue: FS-ISS-001 (still in `active/` — has a fresh `## Dev Response (2026-04-21T06:57:00Z)` section)
-- Prior BLOCKED notice: `2026-04-21_20260421T062158Z_fs-iss-001-fs-iss-001-blocked-in-qa-automated-gates.md` (will be moved to `inbox/completed/` after this re-handoff is processed)
-- Phase plan: `dev_communication/shared/specs/m1-phases.md` §M1.0
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 30/30 pass
+- `pnpm -r typecheck` → 8 packages clean
+- `pnpm test` → 5 vitest tests pass
+- `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
+
+- Commit: `0932d29` ("Fix schema generator: resolve $refs to named exports")
+- Push: pushed to `origin/main` as commit `0932d29` on 2026-04-21.
