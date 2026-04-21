@@ -48,15 +48,15 @@ Legend:
 | Cool-down timer between sessions | **fixed** | **fixed** | **tunable** | *plugin* |
 | Grounding / safe-audio track (one-tap switch to calm content) | ✓ | ✓ | ✓ | ✓ |
 
-**Starting-point defaults** (subject to refinement after pilot use):
+**Starting-point defaults** (clinically validated 2026-04-20 by Adam, LPC):
 
-| Value | Default |
-|---|---|
-| Volume ceiling | −12 dBFS peak at master output |
-| Ramp-up window | 3.0 s |
-| Daily exposure cap per trigger | 15 minutes cumulative |
-| Cool-down between sessions on the same trigger | 60 minutes |
-| Panic-stop fade-out | 500 ms |
+| Value | Default | Notes |
+|---|---|---|
+| Volume ceiling | −12 dBFS peak at master output | Tunable in Tier 3 within safe bounds |
+| Ramp-up window | 3.0 s | Tunable in Tier 3 |
+| Daily exposure cap per trigger | 15 minutes cumulative | Tunable in Tier 3 |
+| Cool-down between sessions on the same trigger | **10 minutes** | Tunable in Tier 3; slider snaps to 10-minute increments |
+| Panic-stop fade-out | 500 ms | **Fixed** for safety (not user-tunable) |
 
 ## Transform library (see ADR-016)
 

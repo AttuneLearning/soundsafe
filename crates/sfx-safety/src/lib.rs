@@ -159,14 +159,20 @@ impl ExposureCap {
 
 /// Minimum interval between sessions on the same trigger, in seconds.
 ///
-/// Range: 0 s (no cool-down — only legal at construction-time, real values
-/// have a 60 s floor) to 86_400 s (24 h). Default 3600 s (60 min).
+/// Range: 0 s (no cool-down) to 86_400 s (24 h). Default 600 s (10 min) —
+/// clinically validated by Adam (LPC) on 2026-04-20.
+///
+/// UI granularity is `STEP_SECONDS` (10 minutes): the cool-down slider
+/// snaps to 10-minute increments. Users extend the cool-down in 10-min
+/// steps when they want a longer pause between sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CoolDown(u32);
 
 impl CoolDown {
-    pub const DEFAULT: Self = Self(3600);
+    pub const DEFAULT: Self = Self(600);
     pub const MAX_SECONDS: u32 = 86_400;
+    /// UI step granularity in seconds — sliders snap to 10-minute increments.
+    pub const STEP_SECONDS: u32 = 600;
 
     pub const fn seconds(self) -> u32 { self.0 }
 
@@ -229,7 +235,14 @@ mod tests {
     fn cooldown_clamps_at_max() {
         assert_eq!(CoolDown::new(1_000_000).seconds(), CoolDown::MAX_SECONDS);
         assert_eq!(CoolDown::new(0).seconds(), 0);
-        assert_eq!(CoolDown::new(3600).seconds(), 3600);
+        assert_eq!(CoolDown::new(600).seconds(), 600);
+    }
+
+    #[test]
+    fn cooldown_default_is_ten_minutes() {
+        // Clinically validated default (Adam, LPC, 2026-04-20).
+        assert_eq!(CoolDown::DEFAULT.seconds(), 600);
+        assert_eq!(CoolDown::STEP_SECONDS, 600);
     }
 
     /// Proptest: any pair of (input, accessor-output) for each rail's
