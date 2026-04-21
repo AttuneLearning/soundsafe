@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@soundsafe/audio-graph-ts": "workspace:*",
@@ -24,6 +26,8 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.48.2",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
