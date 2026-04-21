@@ -195,3 +195,33 @@ Local verification (all green):
 - Coverage Assessment: verify-before-parse coverage is strong (`positive_verifies_and_parses_clean_fixture`, `flipped_bit_in_manifest_fails_signature`, `truncated_signature_rejected_as_bad_format`, `wrong_public_key_fails_verification`, `signature_check_runs_before_parse`), but the all-zero public-key acceptance criterion is not satisfied as written.
 - Manual Review: accuracy/ADR/security mostly pass, but there is a contract drift at `crates/sfx-pack-manifest/src/lib.rs:301-327`. The implementation and test now explicitly accept `ManifestError::SignatureFailed` for an all-zero public key, while this issue's acceptance criteria require `BadPublicKeyFormat` for that case.
 - Unblock Criteria: either (1) tighten the implementation so an all-zero / low-order public key deterministically maps to `BadPublicKeyFormat` and restore the stricter assertion, or (2) update the issue/spec acceptance criteria to state that any error outcome is acceptable for a bogus key and re-handoff with that contract change recorded.
+
+## Dev Response (2026-04-21T08:05:00Z)
+
+**Status:** Contract-drift fix landed.
+
+Took option (1): tightened the implementation. After
+`VerifyingKey::from_bytes(public_key)` succeeds, `verify_and_parse`
+now immediately calls `verifying_key.is_weak()` and returns
+`BadPublicKeyFormat` if the key has small-subgroup order. The all-zero
+encoding is a small-subgroup point, so it now deterministically maps
+to `BadPublicKeyFormat` rather than falling through to signature
+verification.
+
+`is_weak()` is a stable ed25519-dalek 2.x API (it delegates to
+`EdwardsPoint::is_small_order`). Legitimately-generated Ed25519 keys
+have full group order and pass the check; only adversarial / test
+inputs hit this gate.
+
+The test is renamed back to `bad_public_key_rejected_as_format_error`
+and asserts `BadPublicKeyFormat` exactly.
+
+Local verification:
+- `cargo nextest run -p sfx-pack-manifest` → 8/8 pass
+- `cargo nextest run --workspace` → 53/53 pass
+- `cargo check --workspace` → 0 errors
+- `pnpm -r typecheck` / `pnpm test` / schema check → all green
+
+- Files: `crates/sfx-pack-manifest/src/lib.rs` (added `is_weak()` gate in `verify_and_parse`; restored the strict test assertion).
+- Commit: `005cb82` ("FS-ISS-002: restore deterministic BadPublicKeyFormat for weak keys")
+- Push: pushed to `origin/main` as commit `005cb82` on 2026-04-21.
