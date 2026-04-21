@@ -151,9 +151,17 @@ pub fn verify_and_parse(
     signature_bytes: &[u8],
     public_key: &[u8; 32],
 ) -> Result<Manifest, ManifestError> {
-    // Step 1: parse the public key. Returns Err for low-order points etc.
+    // Step 1: parse the public key. `from_bytes` accepts any 32 bytes
+    // whose compressed-Edwards point decodes — including small-subgroup
+    // (low-order) points such as the all-zero key. Those are never
+    // produced by a legitimate signer, so we reject them up front with
+    // `BadPublicKeyFormat` rather than letting the failure surface as a
+    // generic `SignatureFailed`.
     let verifying_key =
         VerifyingKey::from_bytes(public_key).map_err(|_| ManifestError::BadPublicKeyFormat)?;
+    if verifying_key.is_weak() {
+        return Err(ManifestError::BadPublicKeyFormat);
+    }
 
     // Step 2: parse the signature. Ed25519 sigs are always 64 bytes.
     let signature = Signature::from_slice(signature_bytes)
@@ -298,31 +306,19 @@ mod verify_and_parse_tests {
     }
 
     #[test]
-    fn bogus_public_key_is_rejected() {
-        // A bogus public key must never verify. ed25519-dalek's
-        // `VerifyingKey::from_bytes` accepts many byte patterns as
-        // syntactically valid (the all-zero pattern being one of them —
-        // it parses, but no legitimate signer produces it), so the
-        // failure surfaces as `SignatureFailed` rather than
-        // `BadPublicKeyFormat`. Both outcomes are acceptable — what
-        // matters is that verify_and_parse does NOT return Ok with a
-        // wrong key.
-        //
-        // We don't attempt to construct a key that ed25519-dalek itself
-        // rejects at parse time (that would require knowing the exact
-        // invalid-encoding set, which varies by library version). The
-        // contract we care about is the outward-visible one: wrong key
-        // → error of some kind, never a partially-parsed Manifest.
+    fn bad_public_key_rejected_as_format_error() {
+        // The all-zero public key is a small-subgroup (weak) Ed25519
+        // point. `VerifyingKey::from_bytes` parses it without error, so
+        // we need the explicit `is_weak()` check in `verify_and_parse`
+        // to reject it with `BadPublicKeyFormat` before signature
+        // verification ever runs.
         let pack = hello_pack(0);
         let zero_key = [0u8; 32];
         let err = verify_and_parse(&pack.manifest_bytes, &pack.signature_bytes, &zero_key)
             .expect_err("all-zero key must not verify");
         assert!(
-            matches!(
-                err,
-                ManifestError::BadPublicKeyFormat | ManifestError::SignatureFailed
-            ),
-            "expected BadPublicKeyFormat or SignatureFailed, got {:?}",
+            matches!(err, ManifestError::BadPublicKeyFormat),
+            "expected BadPublicKeyFormat for a small-subgroup key, got {:?}",
             err
         );
     }
