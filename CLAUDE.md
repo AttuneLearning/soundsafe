@@ -13,6 +13,8 @@ Soundsafe is a sound-desensitization PWA. Users pick an environmental trigger (d
 | Sound-delivery architecture | `dev_communication/shared/specs/sound-delivery.md` |
 | Master feature matrix (tiers) | `dev_communication/shared/specs/feature-matrix.md` |
 | Product differentiation | `dev_communication/shared/specs/differentiation.md` |
+| Content protection (publisher guidance) | `dev_communication/shared/specs/content-protection.md` |
+| App architecture plan | `/home/adam/.claude/plans/distributed-napping-lemon.md` |
 | Architecture index | `dev_communication/shared/architecture/index.md` |
 | ADR decision log | `dev_communication/shared/architecture/decision-log.md` |
 | Bootstrap plan | `/home/adam/.claude/plans/cached-wishing-iverson.md` |
@@ -40,6 +42,12 @@ See `dev_communication/shared/architecture/decisions/` for full ADRs. Quick inde
 - **ADR-017** Music ships as curated packs in v1; no procedural/AI generation.
 - **ADR-018** TDD by default; `cargo nextest` + `bacon` + `proptest` (Rust), Vitest + Playwright (TS); `wasm-bindgen-test` reserved for boundary.
 - **ADR-019** `/adr` skill made path-configurable upstream; Soundsafe uses default `dev_communication/shared/architecture/` layout.
+- **ADR-020** Two WASM instances: AudioWorklet (real-time DSP + safety + roadmap engine) + Decrypt Worker (bulk AES-GCM). Fast-ring SAB + slow postMessage events.
+- **ADR-021** `@soundsafe/platform` package with build-time shell selection (`SOUNDSAFE_PLATFORM=web|tauri|mobile`). Web bundles never contain Tauri/mobile imports.
+- **ADR-022** Roadmap engine lives in Rust (`sfx-roadmap-engine`), not TS. Audio-accurate Timer / SUDS advance; TS holds an advisory mirror.
+- **ADR-023** State management: Zustand for domain stores; `useSyncExternalStore` on SAB-backed readers for audio-thread values.
+- **ADR-024** Tier-3 authoring is desktop/tablet only (≥768 px) for v1; phone users are routed to Tier-2 passive playback.
+- **ADR-025** Content protection: defend casual disk extraction (OPFS UUID obfuscation, no-URL-addressing, no idle eviction); accept in-session extraction + analog hole. Publisher guidance at `specs/content-protection.md`.
 
 ## Design principles (BLOCKING)
 

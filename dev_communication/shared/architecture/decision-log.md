@@ -29,6 +29,12 @@ Chronological list of architecture decisions. Each row links to the full ADR.
 | ADR-017 | 2026-04-19 | [Music ships as curated packs in v1; no generation](decisions/ADR-017-music-packs-not-generation.md) | Accepted | Content |
 | ADR-018 | 2026-04-20 | [TDD as default; Rust + TS test stack](decisions/ADR-018-tdd-test-strategy.md) | Accepted | Tooling |
 | ADR-019 | 2026-04-20 | [/adr skill path configurable upstream; Soundsafe on default layout](decisions/ADR-019-adr-skill-path-configurable.md) | Accepted | Tooling |
+| ADR-020 | 2026-04-20 | [WASM thread topology — AudioWorklet + Decrypt Worker](decisions/ADR-020-wasm-thread-topology.md) | Accepted | Audio |
+| ADR-021 | 2026-04-20 | [Platform abstraction via `@soundsafe/platform` with build-time shell selection](decisions/ADR-021-platform-abstraction.md) | Accepted | Frontend |
+| ADR-022 | 2026-04-20 | [Roadmap engine lives in Rust, not TS](decisions/ADR-022-roadmap-engine-in-rust.md) | Accepted | Audio |
+| ADR-023 | 2026-04-20 | [State management — Zustand for domain, `useSyncExternalStore` for audio-thread values](decisions/ADR-023-state-management.md) | Accepted | Frontend |
+| ADR-024 | 2026-04-20 | [Phone form-factor — Tier 3 authoring is desktop/tablet only for v1](decisions/ADR-024-phone-form-factor.md) | Accepted | Product |
+| ADR-025 | 2026-04-20 | [Content protection posture — defend casual disk extraction, accept in-session extraction](decisions/ADR-025-content-protection-posture.md) | Accepted | Security |
 
 ---
 

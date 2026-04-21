@@ -145,13 +145,17 @@ Three caches with different lifetimes:
 |---|---|---|---|
 | Cache API (Service Worker) | Encrypted pack blobs (HTTP responses) | Long; keyed by versioned URL (`pack-v<version>.zip`) | Pack version changes; user clears site data |
 | IndexedDB | Manifest, parsed metadata, roadmaps, user progress, JWT, refresh token | Long | User signs out / clears site data |
-| OPFS | Decrypted PCM chunks for the currently active roadmap | Very short; active session only | Pack change, roadmap end, tab close, size-cap exceeded |
+| OPFS | Decrypted PCM chunks for installed packs (bulk-decrypted at pack load) | Long; persists across sessions to support 72-hour offline grace | Pack unload, user clears site data, LRU cap exceeded |
 
 Decrypted audio never touches the Cache API or IndexedDB. See ADR-011.
 
 **Size caps (defaults):**
-- OPFS: 500 MB total decrypted audio, LRU.
+- OPFS: **1 GB total decrypted audio, user-configurable** (min 200 MB, max 4 GB). LRU eviction only when the cap is reached — no eviction on tab close, visibility change, or backgrounding. The persistent cache preserves the 72-hour offline grace (§6) without re-decrypt churn in normal multi-session Tier-3 use.
 - Cache API: no explicit Soundsafe cap; browser-managed quota.
+
+**Filename obfuscation (ADR-025).** OPFS files are stored under opaque v4-UUID names with no file extensions, inside UUID-named per-pack directories. A mapping table in IndexedDB (`opfs_index`: `{ packId, soundId, uuid, sha256, bytes }`) resolves `soundId → handle` at playback time. Purpose: defeat casual disk-level inspection of the browser profile, not defeat an in-session attacker (who has full origin access by design). See `content-protection.md` for the full posture.
+
+**Escape-by-URL disallowed (ADR-025).** Decrypted OPFS handles are never converted to `URL.createObjectURL` or any other URL-addressable form. Enforced as a lint rule in the codebase. Audio flows OPFS → `ReadableStream` → WASM linear memory → AudioWorklet output → Web Audio destination, with no point at which "save as" / drag-out / `<a download>` is reachable.
 
 Policies for OPFS exhaustion under low-storage devices are tracked as GAP-002.
 
@@ -202,9 +206,12 @@ This policy is a placeholder: numeric defaults and the exact persistence semanti
 
 ## 7. Threat model
 
+See also [`content-protection.md`](content-protection.md) for the publisher-facing framing of this posture: what Soundsafe does protect against, what it accepts as out-of-scope (analog hole, DevTools, extensions, memory forensics), and why the posture is proportional to curated therapeutic audio content.
+
 | Threat | Mitigation | Residual risk |
 |---|---|---|
 | CDN URL leakage → content extraction | Per-pack AES-256-GCM encryption (ADR-010) | Determined attacker with a running legit session can extract in-memory keys. Accepted. |
+| Casual disk-level inspection of cached decrypted audio | OPFS filename obfuscation (UUIDs, no extensions); no URL-addressable handles (ADR-025) | Defeats filesystem browsing; does not defeat origin-scoped JS or DevTools. Accepted. |
 | Stolen entitlement JWT replayed from another device | Short TTL, refresh-token flow, scope-based validation | Within the TTL window, a stolen JWT is usable. Acceptable for low-value content. |
 | Modified manifest served by a compromised CDN origin | Ed25519 signature check before trusting manifest | Compromise of the publisher signing key defeats this. Publisher key is offline-held. |
 | Replay of encrypted files with swapped nonces | GCM auth tag binds ciphertext ↔ key ↔ nonce | Any tampering fails the tag check. |

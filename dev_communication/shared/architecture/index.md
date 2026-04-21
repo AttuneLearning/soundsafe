@@ -19,6 +19,7 @@ Narrative design specs live alongside this tree at `../specs/`:
 | [sound-delivery.md](../specs/sound-delivery.md) | End-to-end: pack format, CDN flow, WASM audio pipeline, caching, update channel, offline behavior, threat model, therapist-plugin seams. |
 | [feature-matrix.md](../specs/feature-matrix.md) | Tier-by-tier feature list the architecture must support. |
 | [differentiation.md](../specs/differentiation.md) | Competitive positioning and product differentiation. |
+| [content-protection.md](../specs/content-protection.md) | Publisher-facing guidance: what Soundsafe does and does not protect content against. |
 
 ## How this is organized
 
