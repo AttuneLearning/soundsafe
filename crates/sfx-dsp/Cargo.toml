@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 num-traits.workspace = true
+libm.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

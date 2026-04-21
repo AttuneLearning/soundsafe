@@ -12,10 +12,7 @@
 
 extern crate alloc;
 
-/// Marker for a real-time-safe DSP transform. Stub for M0 — the trait
-/// surface (prepare / set_param / process / reset / serialize_params) is
-/// added in M1 alongside the first transform implementation (Gain envelope).
-pub trait Transform {
-    /// Returns the transform's stable identifier — used in roadmap JSON.
-    fn id(&self) -> &'static str;
-}
+pub mod transform;
+pub mod transforms;
+
+pub use transform::Transform;
