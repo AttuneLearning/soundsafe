@@ -1,0 +1,21 @@
+{
+  "name": "@soundsafe/platform",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-shell platform abstraction (web v1; Tauri/mobile reserved). See ADR-021.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./web": "./web/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "echo 'no tests yet (M0)'"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

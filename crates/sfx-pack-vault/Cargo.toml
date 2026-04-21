@@ -1,0 +1,19 @@
+[package]
+name = "sfx-pack-vault"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Soundsafe pack vault — AES-256-GCM decryption and key lifecycle (Zeroize on drop)."
+
+[lints]
+workspace = true
+
+[dependencies]
+sfx-pack-manifest = { path = "../sfx-pack-manifest" }
+aes-gcm.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

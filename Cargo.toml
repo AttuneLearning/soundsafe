@@ -1,0 +1,80 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sfx-dsp",
+    "crates/sfx-signature",
+    "crates/sfx-audio-graph",
+    "crates/sfx-safety",
+    "crates/sfx-roadmap-engine",
+    "crates/sfx-pack-manifest",
+    "crates/sfx-pack-vault",
+    "crates/sfx-comms-crypto",
+    "crates/sfx-pack-tooling",
+    "packages/rust-core",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+publish = false
+repository = "https://github.com/AttuneLearning/soundsafe"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+dbg_macro = "deny"
+todo = "warn"
+unimplemented = "warn"
+
+[workspace.dependencies]
+# Serde + schema
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = { version = "0.8", features = ["preserve_order"] }
+
+# Cryptography
+aes-gcm = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+zeroize = { version = "1", features = ["derive"] }
+
+# Concurrency primitives (audio-graph)
+crossbeam-queue = "0.3"
+atomic_float = "1"
+
+# DSP
+rustfft = "6"
+realfft = "3"
+num-traits = "0.2"
+
+# WASM
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+
+# CLI / native
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+thiserror = "1"
+
+# Testing
+proptest = "1"
+rstest = "0.21"
+insta = "1"
+assert-no-alloc = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.release.package.sfx-audio-graph]
+# Audio-hot crate gets the harshest optimization
+opt-level = 3
+lto = "fat"
+
+[profile.test]
+opt-level = 1  # fast enough for proptest; debug symbols kept

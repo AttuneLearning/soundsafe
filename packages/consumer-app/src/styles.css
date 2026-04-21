@@ -1,0 +1,272 @@
+/* Soundsafe — M0 starter styles.
+   Minimal subset of the Tier-3 mockup palette + typography so the M0 app
+   already reads as Soundsafe rather than as a Vite default. The full design
+   language lands in M2 alongside the workspace components. */
+
+:root {
+  --bg-base: #141110;
+  --bg-panel: #1B1714;
+  --bg-raised: #221D18;
+  --bg-deep: #0D0B0A;
+
+  --bezel-dk: #2B2420;
+  --bezel-lt: #362E28;
+
+  --ink: #ECE6DA;
+  --ink-soft: #C8C0B4;
+  --ink-dim: #938B80;
+  --ink-muted: #655D54;
+
+  --ember: #E48B3C;
+  --ember-br: #F4A256;
+  --ember-dk: #9A5A23;
+
+  --panic: #E03218;
+  --panic-glow: rgba(224, 50, 24, 0.55);
+
+  --font-display: 'Fraunces', 'Hoefler Text', Cambria, serif;
+  --font-body: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--bg-base);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* ---------- header ---------- */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: linear-gradient(to bottom, #18140F, #110E0C);
+  border-bottom: 1px solid var(--bezel-dk);
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.005em;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.brand-dot { color: var(--ember); }
+
+.brand-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  border-left: 1px solid var(--bezel-lt);
+  padding-left: 12px;
+}
+
+/* ---------- panic stop ---------- */
+
+.panic-button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 20px 8px;
+  background: linear-gradient(to bottom, #C62714, #7C190A);
+  border: 1px solid #48100A;
+  border-radius: 4px;
+  color: #FFE3D9;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 185, 160, 0.35),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(224, 50, 24, 0.3),
+    0 0 18px var(--panic-glow);
+}
+
+.panic-button:focus-visible {
+  outline: 2px solid var(--ember-br);
+  outline-offset: 3px;
+}
+
+.panic-label { line-height: 1; }
+
+.panic-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: rgba(255, 227, 217, 0.8);
+}
+
+.kbd {
+  display: inline-block;
+  padding: 1px 5px 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- main ---------- */
+
+.app-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.placeholder {
+  max-width: 640px;
+  text-align: center;
+}
+
+.placeholder h1 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 36px;
+  margin-bottom: 16px;
+  color: var(--ink);
+}
+
+.placeholder p {
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+
+.placeholder code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ember-br);
+  background: var(--bg-deep);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--bezel-dk);
+}
+
+.placeholder .ack {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 24px;
+}
+
+.placeholder .ack time { color: var(--ember); }
+
+/* ---------- disclaimer overlay ---------- */
+
+.disclaimer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 11, 10, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.disclaimer-card {
+  max-width: 540px;
+  background: var(--bg-panel);
+  border: 1px solid var(--bezel-dk);
+  border-radius: 6px;
+  padding: 32px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 30px 60px -20px rgba(0, 0, 0, 0.6);
+}
+
+.disclaimer-card h2 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 26px;
+  color: var(--ink);
+  margin-bottom: 18px;
+}
+
+.disclaimer-card p {
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+
+.disclaimer-read-link {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ember);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.disclaimer-read-link:focus-visible {
+  outline: 2px solid var(--ember-br);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.disclaimer-read-link-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-left: 8px;
+}
+
+.disclaimer-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.disclaimer-actions .primary {
+  padding: 10px 20px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: #2B1808;
+  background: linear-gradient(to bottom, var(--ember-br), var(--ember));
+  border: 1px solid var(--ember-dk);
+  border-radius: 3px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 12px rgba(228, 139, 60, 0.2);
+}
+
+.disclaimer-actions .primary:focus-visible {
+  outline: 2px solid var(--ember-br);
+  outline-offset: 3px;
+}

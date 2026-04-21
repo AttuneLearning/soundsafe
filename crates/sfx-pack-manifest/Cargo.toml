@@ -1,0 +1,26 @@
+[package]
+name = "sfx-pack-manifest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Soundsafe pack manifest types + Ed25519 signature verification."
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Enable JSON Schema emission for the TS roadmap-schema generator. Opt-in so
+# WASM builds don't pull schemars.
+emit-schema = ["dep:schemars"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ed25519-dalek.workspace = true
+schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+insta.workspace = true

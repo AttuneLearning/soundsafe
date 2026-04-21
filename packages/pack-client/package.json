@@ -1,0 +1,21 @@
+{
+  "name": "@soundsafe/pack-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CDN fetch + Service Worker pack cache + decrypt-worker orchestration.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "echo 'no tests yet (M0)'"
+  },
+  "dependencies": {
+    "@soundsafe/platform": "workspace:*",
+    "@soundsafe/roadmap-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

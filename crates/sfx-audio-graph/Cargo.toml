@@ -1,0 +1,22 @@
+[package]
+name = "sfx-audio-graph"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Soundsafe audio graph — block-based DAG, lock-free param ring, parameter smoothers."
+
+[lints]
+workspace = true
+
+[dependencies]
+sfx-dsp = { path = "../sfx-dsp" }
+sfx-signature = { path = "../sfx-signature" }
+sfx-safety = { path = "../sfx-safety" }
+crossbeam-queue.workspace = true
+atomic_float.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+assert-no-alloc.workspace = true

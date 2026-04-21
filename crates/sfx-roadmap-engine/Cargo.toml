@@ -1,0 +1,18 @@
+[package]
+name = "sfx-roadmap-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Soundsafe roadmap state machine. Pure Rust, no audio I/O. Drives step transitions on Timer / UserTap / SudsBelow."
+
+[lints]
+workspace = true
+
+[dependencies]
+sfx-safety = { path = "../sfx-safety" }
+
+[dev-dependencies]
+proptest.workspace = true
+insta.workspace = true

@@ -1,0 +1,28 @@
+[package]
+name = "rust-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Soundsafe WASM entry point. Thin wasm-bindgen surface over the Rust core crates."
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sfx-audio-graph = { path = "../../crates/sfx-audio-graph" }
+sfx-roadmap-engine = { path = "../../crates/sfx-roadmap-engine" }
+sfx-safety = { path = "../../crates/sfx-safety" }
+sfx-pack-manifest = { path = "../../crates/sfx-pack-manifest" }
+sfx-pack-vault = { path = "../../crates/sfx-pack-vault" }
+
+wasm-bindgen.workspace = true
+js-sys.workspace = true
+console_error_panic_hook.workspace = true
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

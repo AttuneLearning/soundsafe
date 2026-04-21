@@ -1,0 +1,33 @@
+{
+  "name": "@soundsafe/consumer-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Soundsafe consumer PWA — the shipping v1 React app.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'no tests yet (M0)'"
+  },
+  "dependencies": {
+    "@soundsafe/audio-graph-ts": "workspace:*",
+    "@soundsafe/entitlement": "workspace:*",
+    "@soundsafe/pack-client": "workspace:*",
+    "@soundsafe/platform": "workspace:*",
+    "@soundsafe/roadmap-schema": "workspace:*",
+    "@soundsafe/storage": "workspace:*",
+    "@soundsafe/ui-kit": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.10"
+  }
+}

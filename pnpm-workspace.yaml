@@ -1,0 +1,9 @@
+packages:
+  - "packages/consumer-app"
+  - "packages/ui-kit"
+  - "packages/audio-graph-ts"
+  - "packages/pack-client"
+  - "packages/entitlement"
+  - "packages/storage"
+  - "packages/roadmap-schema"
+  - "packages/platform"

@@ -1,0 +1,13 @@
+[package]
+name = "sfx-comms-crypto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "RESERVED — therapist-plugin message signing/verification primitives. Empty in v1 (ADR-004)."
+
+[lints]
+workspace = true
+
+[dependencies]
