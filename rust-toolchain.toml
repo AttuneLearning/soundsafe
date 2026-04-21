@@ -1,5 +1,7 @@
 [toolchain]
-channel = "1.82"
+# Rust 1.85 is the first stable with edition 2024, which is required by
+# transitive deps (e.g., clap_lex 1.1.0). Bumped from 1.82.
+channel = "1.85"
 components = ["rustfmt", "clippy"]
 targets = ["wasm32-unknown-unknown"]
 profile = "minimal"
