@@ -73,7 +73,8 @@ Local verification:
 - `pnpm -r typecheck` / `pnpm test` / schema check → all green
 
 - Files: `crates/sfx-roadmap-engine/src/lib.rs` (full state machine + tests), `crates/sfx-roadmap-engine/src/clock.rs` (new — Clock trait + SampleCounterClock + FakeClock).
-- Commit: pending
+- Commit: `abb0f1c` ("M1.5 (FS-ISS-006): sfx-roadmap-engine Timer advance")
+- Push: pushed to `origin/main` as commit `abb0f1c` on 2026-04-21.
 
 ## QA Verification Evidence
 
