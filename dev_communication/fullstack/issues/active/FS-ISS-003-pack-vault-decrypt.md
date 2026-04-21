@@ -109,3 +109,32 @@ in std anyway).
 - Manual Review: not completed
 - Gate Results: cargo check=PASS; pnpm typecheck=FAIL; cargo nextest=FAIL; pnpm test=FAIL; schema check=SKIP
 - Unblock Criteria: fix the failing automated gate(s), add a fresh Dev Response section, and re-submit with a fresh inbox handoff
+
+## Dev Response (2026-04-21T06:57:00Z)
+
+**Status:** Re-handoff after QA blocker fixes.
+
+FS-ISS-003's own code passed all 8 tests on the first pass. The gate
+blockers were workspace-wide:
+
+- `cargo nextest` — an ed25519-dalek 2.x assumption in `sfx-pack-manifest`'s
+  bad-public-key test (sibling crate, not this one).
+- `pnpm typecheck` / `pnpm test` — 8 TS imports used `.ts`/`.tsx`
+  extensions (conflict with declaration-emit); consumer-app's
+  `tsconfig.node.json` had composite+noEmit (TS6310).
+
+All fixed in commit `a90eaec`.
+
+Local verification (all green):
+- `cargo test -p sfx-pack-vault` → 8 tests pass (decrypt round-trip,
+  tampered-ciphertext-zeros-buffer, wrong nonce/key/length, drop smoke)
+- `cargo test --workspace` → 29 tests pass
+- `pnpm -r typecheck` → 8 packages clean
+- `pnpm test` → 5 vitest tests pass
+
+- Files: one line in `sfx-pack-manifest` + TS workspace fixes. `sfx-pack-vault` itself is unchanged from commit `b184bab`.
+- Commit: `a90eaec` ("Fix QA gate failures: Rust test assumption + TS import extensions + tsconfig")
+- Push: pushed to `origin/main` as commit `a90eaec` on 2026-04-21.
+
+The `PackVault` implementation + ADR-010 compliance (Zeroizing key, GCM
+verify-before-commit, buffer-zero-on-TagMismatch) is unchanged.
