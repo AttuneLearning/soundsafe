@@ -182,3 +182,43 @@ Local verification (all green):
 - Files: `packages/roadmap-schema/scripts/generate.mjs`, `packages/roadmap-schema/src/generated.ts` (regenerated).
 - Commit: `0932d29` ("Fix schema generator: resolve $refs to named exports")
 - Push: pushed to `origin/main` as commit `0932d29` on 2026-04-21.
+
+## QA Verification (2026-04-21T07:41:11Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: incomplete because one or more automated gates failed
+- Manual Review: not completed
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=FAIL; pnpm test=PASS; schema check=PASS
+- Unblock Criteria: fix the failing automated gate(s), add a fresh Dev Response section, and re-submit with a fresh inbox handoff
+
+## Dev Response (2026-04-21T07:50:00Z)
+
+**Status:** Re-handoff after race-condition block.
+
+The 07:41Z block was a race between this QA cycle and an in-flight
+FS-ISS-004 commit. The QA watcher scanned the working tree after I had
+written `crates/sfx-dsp/src/lib.rs` (which adds `pub mod transform;`
+and `pub mod transforms;`) but before `transform.rs` /
+`transforms/mod.rs` / `transforms/gain.rs` were created. The
+nextest log shows exactly `E0583: file not found for module transform`
+for that reason. FS-ISS-003's own crate (`sfx-pack-vault`) was never
+touched and was not the source of the failure.
+
+That race-window closed with commit `105cc45` ("M1.3 (FS-ISS-004):
+Transform trait + Gain envelope"). Full local verification on the
+post-race tree:
+
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 43/43 pass (30 from M1.0–M1.2 +
+  13 from M1.3). `sfx-pack-vault`'s 8 tests all continue to pass.
+- `pnpm -r typecheck` → 8 packages clean
+- `pnpm test` → 5 vitest tests pass
+- `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
+
+FS-ISS-003's deliverable (`sfx-pack-vault`, `PackVault`, ADR-010
+compliance) is unchanged from commit `b184bab`.
+
+- Files: none in this issue; the block was caused by a sibling crate
+  mid-commit.
+- Commit: `105cc45` ("M1.3 (FS-ISS-004): Transform trait + Gain envelope")
+- Push: pushed to `origin/main` as commit `105cc45` on 2026-04-21.
