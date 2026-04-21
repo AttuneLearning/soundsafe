@@ -138,7 +138,8 @@ Local verification:
 - `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
 
 - Files: `packages/pack-client/package.json` (vitest devdep), `packages/pack-client/src/{index,client,types,opfs-index,opfs-store,rustcore-bridge}.ts`, `packages/pack-client/src/__tests__/client.test.ts`.
-- Commit: pending
+- Commit: `b9fb974` ("M1.8 (FS-ISS-009): @soundsafe/pack-client orchestration layer")
+- Push: pushed to `origin/main` as commit `b9fb974` on 2026-04-21.
 
 ## QA Verification Evidence
 
