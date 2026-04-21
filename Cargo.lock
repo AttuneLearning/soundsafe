@@ -1204,6 +1204,7 @@ dependencies = [
  "assert_no_alloc",
  "atomic_float",
  "crossbeam-queue",
+ "libm",
  "proptest",
  "sfx-dsp",
  "sfx-safety",

@@ -16,6 +16,7 @@ sfx-signature = { path = "../sfx-signature" }
 sfx-safety = { path = "../sfx-safety" }
 crossbeam-queue.workspace = true
 atomic_float.workspace = true
+libm.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
