@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Manifest, PackFile, TierRequired } from '../generated.ts';
+import { Manifest, PackFile, TierRequired } from '../generated';
 
 describe('Manifest schema', () => {
   it('parses a minimal valid manifest', () => {

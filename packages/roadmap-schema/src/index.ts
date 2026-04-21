@@ -16,4 +16,4 @@ export {
   type Manifest as ManifestT,
   type PackFile as PackFileT,
   type TierRequired as TierRequiredT,
-} from './generated.ts';
+} from './generated';

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { DisclaimerGate } from './components/DisclaimerGate.tsx';
-import { PanicStop } from './components/PanicStop.tsx';
+import { DisclaimerGate } from './components/DisclaimerGate';
+import { PanicStop } from './components/PanicStop';
 
 const DISCLAIMER_KEY = 'soundsafe.disclaimer.v1.acknowledgedAt';
 

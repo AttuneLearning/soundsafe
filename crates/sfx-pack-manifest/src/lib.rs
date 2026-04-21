@@ -298,15 +298,31 @@ mod verify_and_parse_tests {
     }
 
     #[test]
-    fn bad_public_key_rejected_as_format_error() {
+    fn bogus_public_key_is_rejected() {
+        // A bogus public key must never verify. ed25519-dalek's
+        // `VerifyingKey::from_bytes` accepts many byte patterns as
+        // syntactically valid (the all-zero pattern being one of them —
+        // it parses, but no legitimate signer produces it), so the
+        // failure surfaces as `SignatureFailed` rather than
+        // `BadPublicKeyFormat`. Both outcomes are acceptable — what
+        // matters is that verify_and_parse does NOT return Ok with a
+        // wrong key.
+        //
+        // We don't attempt to construct a key that ed25519-dalek itself
+        // rejects at parse time (that would require knowing the exact
+        // invalid-encoding set, which varies by library version). The
+        // contract we care about is the outward-visible one: wrong key
+        // → error of some kind, never a partially-parsed Manifest.
         let pack = hello_pack(0);
-        // All-zero is a low-order point and should be rejected by VerifyingKey::from_bytes.
         let zero_key = [0u8; 32];
         let err = verify_and_parse(&pack.manifest_bytes, &pack.signature_bytes, &zero_key)
-            .expect_err("all-zero key is invalid");
+            .expect_err("all-zero key must not verify");
         assert!(
-            matches!(err, ManifestError::BadPublicKeyFormat),
-            "expected BadPublicKeyFormat, got {:?}",
+            matches!(
+                err,
+                ManifestError::BadPublicKeyFormat | ManifestError::SignatureFailed
+            ),
+            "expected BadPublicKeyFormat or SignatureFailed, got {:?}",
             err
         );
     }

@@ -4,7 +4,8 @@
     "composite": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "noEmit": true
+    "outDir": "dist/node",
+    "emitDeclarationOnly": true
   },
   "include": ["vite.config.ts"]
 }

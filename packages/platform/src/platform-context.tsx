@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { Platform } from './index.ts';
+import type { Platform } from './index';
 
 /**
  * React context carrying the active Platform. Provided once at the app
