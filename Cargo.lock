@@ -1054,11 +1054,15 @@ version = "0.0.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
+ "serde",
+ "serde_json",
  "sfx-audio-graph",
+ "sfx-dsp",
  "sfx-pack-manifest",
  "sfx-pack-vault",
  "sfx-roadmap-engine",
  "sfx-safety",
+ "sfx-test-fixtures",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]

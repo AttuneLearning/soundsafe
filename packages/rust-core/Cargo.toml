@@ -15,6 +15,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 sfx-audio-graph = { path = "../../crates/sfx-audio-graph" }
+sfx-dsp = { path = "../../crates/sfx-dsp" }
 sfx-roadmap-engine = { path = "../../crates/sfx-roadmap-engine" }
 sfx-safety = { path = "../../crates/sfx-safety" }
 sfx-pack-manifest = { path = "../../crates/sfx-pack-manifest" }
@@ -23,6 +24,9 @@ sfx-pack-vault = { path = "../../crates/sfx-pack-vault" }
 wasm-bindgen.workspace = true
 js-sys.workspace = true
 console_error_panic_hook.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+sfx-test-fixtures = { path = "../../crates/sfx-test-fixtures" }

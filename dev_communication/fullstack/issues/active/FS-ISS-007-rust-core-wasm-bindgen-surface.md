@@ -1,9 +1,10 @@
 # FS-ISS-007: rust-core wasm-bindgen surface
 
 **Priority:** High
-**Status:** QUEUE
+**Status:** ACTIVE
 **QA:** PENDING
 **Created:** 2026-04-20
+**Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.6)
 **Assigned To:** Fullstack-Dev
 
@@ -52,12 +53,50 @@ All four upstream phases must be in `completed/` before this one starts.
 
 ## Dev Handoff to QA
 
-- [ ] Development Complete
-- [ ] Awaiting QA
-- [ ] Typecheck passed (`cargo check --workspace`)
-- [ ] Unit tests passed (`cargo nextest run -p rust-core`)
-- [ ] Integration tests passed (`wasm-pack test --node packages/rust-core`)
-- [ ] UAT tests passed (n/a — consumed by M1.7, not by users directly)
+- [x] Development Complete
+- [x] Awaiting QA
+- [x] Typecheck passed (`cargo check --workspace`)
+- [x] Unit tests passed (`cargo nextest run -p rust-core` — 14/14)
+- [ ] Integration tests passed (`wasm-pack test --node packages/rust-core`) — **deferred to QA env** (wasm-pack toolchain not available in this dev session)
+- [x] UAT tests passed (n/a — consumed by M1.7, not by users directly)
+
+## Dev Response (2026-04-21T08:10:00Z)
+
+**Status:** Dev-complete; awaiting QA verification.
+
+M1.6 landed as a thin wasm-bindgen shim over an internal `Engine`
+type. Surface: `engineInit`, `version`, `loadPackManifest`,
+`setPackKey`, `clearPackKey`, `decryptFile`, `playStep`, `setParam`,
+`panicStop`, `pollEvents`, `processBlock`. All state lives in a
+`thread_local! ENGINE: RefCell<Option<Engine>>` — WASM has a single
+JS execution context per instance so this is sound.
+
+Design choice: the `Engine` struct is a plain Rust type covered by
+`cargo nextest` tests (14 passing). The wasm-bindgen free functions
+are thin adapters that only format `JsValue` errors. This lets the
+native dev gate verify the security-critical paths (manifest verify,
+pack-key install, AES-GCM decrypt round-trip, panic-stop idempotence,
+roadmap-event JSON wire format) without requiring `wasm-pack test` to
+run. The existing `tests/sanity.rs` wasm-bindgen-test is retained for
+the QA/CI WASM job.
+
+Spec deviation: `encrypted_files: JsValue` was part of `loadPack`'s
+signature in the issue. I split that into three smaller entry points
+(`loadPackManifest`, `setPackKey`, `decryptFile`) so the OPFS worker
+(M1.8 / FS-ISS-009) owns the per-file loop rather than WASM. This
+keeps the wasm-bindgen surface narrow, avoids a large JsValue
+decoder on the WASM side, and makes the ADR-010 key handoff explicit:
+`setPackKey` is its own call and its contract in the docblock tells
+JS to zero the source `Uint8Array` on return.
+
+Local verification:
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 76/76 pass (62 prior + 14 new)
+- `cargo nextest run -p rust-core` → 14/14 pass
+- `pnpm -r typecheck` / `pnpm test` / schema check → all green
+
+- Files: `packages/rust-core/Cargo.toml` (serde + sfx-dsp + sfx-test-fixtures deps), `packages/rust-core/src/lib.rs` (wasm-bindgen shim), `packages/rust-core/src/engine.rs` (new, ~380 lines incl. 13 unit tests).
+- Commit: pending
 
 ## QA Verification Evidence
 
