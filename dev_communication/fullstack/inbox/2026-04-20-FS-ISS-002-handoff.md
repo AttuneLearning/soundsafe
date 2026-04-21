@@ -11,6 +11,9 @@
 
 FS-ISS-002 (M1.1 in `dev_communication/shared/specs/m1-phases.md`) is dev-complete. `sfx-pack-manifest` now exposes `verify_and_parse(manifest_bytes, signature_bytes, public_key) -> Result<Manifest, ManifestError>`. Six tests cover positive, four negative cases, and the load-bearing "signature check runs before JSON parse" invariant required by ADR-006.
 
+**Commit:** `54df0a9` — "M1.1 (FS-ISS-002): sfx-pack-manifest verify_and_parse with Ed25519"
+**Push evidence:** pushed to `origin/main` (the shared remote branch) as commit `54df0a9` on 2026-04-20. Verifiable with `git fetch && git log origin/main --oneline | grep 54df0a9`.
+
 The implementation order in `verify_and_parse` is documented in the function's doc comment and asserted by the `signature_check_runs_before_parse` test — feeding non-JSON bytes with a valid signature returns `SignatureFailed`, not `Parse`, proving we never reach `serde_json::from_slice` on the failure path.
 
 The issue file at `dev_communication/fullstack/issues/active/FS-ISS-002-pack-manifest-ed25519-verify.md` carries the full implementation summary, file list, and acceptance-criteria status.

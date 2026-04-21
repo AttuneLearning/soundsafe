@@ -9,7 +9,10 @@
 
 ## Content
 
-FS-ISS-003 (M1.2 in `dev_communication/shared/specs/m1-phases.md`) is dev-complete. `sfx-pack-vault` now has a real `PackVault` with `Zeroizing<[u8; 32]>` key handling per ADR-010 and a streaming `decrypt_into` method that verifies the GCM tag before committing plaintext. Seven tests cover positive, four negative cases, the input-validation paths, and the Drop wiring.
+FS-ISS-003 (M1.2 in `dev_communication/shared/specs/m1-phases.md`) is dev-complete. `sfx-pack-vault` now has a real `PackVault` with `Zeroizing<[u8; 32]>` key handling per ADR-010 and a streaming `decrypt_into` method that verifies the GCM tag before committing plaintext. Eight tests cover positive, four negative cases, the input-validation paths, and the Drop wiring.
+
+**Commit:** `b184bab` — "M1.2 (FS-ISS-003): sfx-pack-vault PackVault + decrypt_into with Zeroize"
+**Push evidence:** pushed to `origin/main` (the shared remote branch) as commit `b184bab` on 2026-04-20. Verifiable with `git fetch && git log origin/main --oneline | grep b184bab`.
 
 This commit completes the **crypto pillar** of M1: fixture (FS-ISS-001) → manifest verify (FS-ISS-002) → vault decrypt (FS-ISS-003). All three layers are hand-wired and round-trip cleanly via `sfx_test_fixtures::hello_pack`. After this, M1 work moves to the audio-graph + DSP pillar (FS-ISS-004 onwards).
 

@@ -60,6 +60,28 @@ Per ADR-006 and `sound-delivery.md §2`, the signature must be verified before a
 - `crates/sfx-pack-manifest/Cargo.toml` (added dev-dep on sfx-test-fixtures)
 - `crates/sfx-pack-manifest/src/lib.rs` (added ManifestError + verify_and_parse + 6 tests; removed misleading no_std attribute)
 
+## Dev Response (2026-04-20T18:32:00Z)
+
+**Status:** Dev-complete; awaiting QA verification.
+
+Implemented `verify_and_parse` in `sfx-pack-manifest` per ADR-006's
+verify-before-parse rule. Six tests in the new `verify_and_parse_tests`
+submodule: positive verify+parse via `hello_pack(0)`, four negative cases
+(flipped manifest bit, truncated signature, wrong public key, all-zero
+public key), plus the load-bearing ordering invariant
+(`signature_check_runs_before_parse` feeds non-JSON bytes plus a real
+signature and asserts we return `SignatureFailed`, not `Parse`).
+
+Spec deviation: removed the misleading
+`#![cfg_attr(not(any(test, feature = "emit-schema")), no_std)]` attribute
+since the crate transitively depends on `std` via `serde_json`'s default
+features. Documented in the handoff and in the commit message.
+
+- Files: `crates/sfx-pack-manifest/Cargo.toml` (added dev-dep on sfx-test-fixtures), `crates/sfx-pack-manifest/src/lib.rs` (added `ManifestError` enum, `verify_and_parse` function, six new tests; removed misleading `no_std` attribute)
+- Gates: `cargo check --workspace` and `cargo nextest run -p sfx-pack-manifest` were **NOT run** in the dev session (no Rust toolchain available); QA must run both. Expected: 8 tests pass (2 existing + 6 new in `verify_and_parse_tests`).
+- Commit: `54df0a9` ("M1.1 (FS-ISS-002): sfx-pack-manifest verify_and_parse with Ed25519")
+- Push: pushed to `origin/main` as commit `54df0a9` on 2026-04-20.
+
 ## QA Verification Evidence
 
 - QA Verdict:
