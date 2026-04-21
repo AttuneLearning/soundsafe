@@ -96,7 +96,8 @@ Local verification:
 - `pnpm -r typecheck` / `pnpm test` / schema check → all green
 
 - Files: `packages/rust-core/Cargo.toml` (serde + sfx-dsp + sfx-test-fixtures deps), `packages/rust-core/src/lib.rs` (wasm-bindgen shim), `packages/rust-core/src/engine.rs` (new, ~380 lines incl. 13 unit tests).
-- Commit: pending
+- Commit: `2538038` ("M1.6 (FS-ISS-007): rust-core wasm-bindgen surface")
+- Push: pushed to `origin/main` as commit `2538038` on 2026-04-21.
 
 ## QA Verification Evidence
 
