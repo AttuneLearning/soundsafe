@@ -11,10 +11,14 @@
 # Defaults:
 #   - Project root: this repo
 #   - Team: fullstack
-#   - Interval between Claude invocations: 3 hours (cron fires every 15 min
+#   - Interval between dev invocations: 3 hours (cron fires every 15 min
 #     but the script self-throttles)
 #   - Status retention: 7 days
 #   - Pause file: ~/.claude/pause-keepalive-fullstack
+#   - Dev → QA pairing: ENABLED (--run-qa-after-dev). Each successful
+#     Claude fullstack-dev run is followed by a Codex fullstack-qa sweep
+#     that processes the fresh handoff, runs gates, and renders a verdict.
+#     If dev finds no work or fails, QA is skipped.
 #
 # To pause:
 #   touch ~/.claude/pause-keepalive-fullstack
@@ -24,8 +28,14 @@
 # Override the interval for a specific run:
 #   ./scripts/keepalive-cron.sh --interval-hours 1
 #
-# Dry run (see what the script would do without invoking Claude):
+# Dry run (see what the script would do without invoking either CLI):
 #   ./scripts/keepalive-cron.sh --dry-run
+#
+# Disable the QA pairing for a run (dev only):
+#   ./scripts/keepalive-cron.sh --no-qa-after-dev
+#
+# Override the Codex CLI invocation for your version:
+#   ./scripts/keepalive-cron.sh --codex-cmd "codex --non-interactive"
 #
 # =============================================================================
 
@@ -42,4 +52,8 @@ if [[ ! -x "$KEEPALIVE" ]]; then
   exit 1
 fi
 
-exec "$KEEPALIVE" "$PROJECT_ROOT" fullstack --interval-hours 3 --retention-days 7 "$@"
+exec "$KEEPALIVE" "$PROJECT_ROOT" fullstack \
+  --interval-hours 3 \
+  --retention-days 7 \
+  --run-qa-after-dev \
+  "$@"

@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-20
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.1)
@@ -93,3 +93,11 @@ features. Documented in the handoff and in the commit message.
 
 **Completed:**
 **Notes:**
+
+## QA Verification (2026-04-21T06:21:59Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: incomplete because one or more automated gates failed
+- Manual Review: not completed
+- Gate Results: cargo check=PASS; pnpm typecheck=FAIL; cargo nextest=FAIL; pnpm test=FAIL; schema check=SKIP
+- Unblock Criteria: fix the failing automated gate(s), add a fresh Dev Response section, and re-submit with a fresh inbox handoff

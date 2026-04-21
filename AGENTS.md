@@ -86,12 +86,14 @@ wasm-pack test --node packages/rust-core
 
 ## Autonomous Keepalive Loop
 
-A cron-driven script keeps work moving forward between interactive sessions. Every 15 minutes (configurable), it:
+A cron-driven script keeps the dev + QA loop moving forward between interactive sessions. Every 15 minutes (configurable), it:
 
 1. Checks `dev_communication/fullstack/inbox/` for unprocessed messages and `dev_communication/fullstack/issues/queue/` for pending issues.
 2. Writes a timestamped status file to `dev_communication/fullstack/status/<ISO-timestamp>_status.md` with the scan results.
-3. If pending work exists **and** the self-throttle window (default 3 hours) has elapsed since the last Claude invocation, resumes the last Claude conversation non-interactively via `claude --print --continue`. The prompt tells the resumed Claude to process the work per the team's lifecycle, commit + push, and append findings to the status file.
-4. Garbage-collects status files older than 7 days.
+3. If pending work exists **and** the self-throttle window (default 3 hours) has elapsed since the last invocation, invokes Claude as **fullstack-dev** non-interactively via `claude --print --continue`. The prompt tells the resumed Claude to process the work per the dev lifecycle, commit + push, and append findings to the status file.
+4. **If Claude's dev run succeeded**, invokes Codex as **fullstack-qa** (`--run-qa-after-dev` is on by default in the Soundsafe wrapper). Codex reads the team's `fullstack-qa-autonomous-sweep.md` prompt, processes the fresh handoffs just produced by Claude, runs the gate sweep (via the `qa_runner` defined in `ai_team_config/roles/fullstack-qa.yaml`), renders a verdict, and appends its own findings section to the same status file.
+5. If Claude found no work or failed, Codex is skipped — nothing for QA to review.
+6. Garbage-collects status files older than 7 days.
 
 **Wire it up** (once):
 
@@ -101,11 +103,17 @@ crontab -e
 */15 * * * * /home/adam/github/soundsafe/scripts/keepalive-cron.sh >> /home/adam/.claude/keepalive-fullstack.log 2>&1
 ```
 
-**Pause** without editing cron: `touch ~/.claude/pause-keepalive-fullstack`. Resume with `rm`.
+**Pause** without editing cron: `touch ~/.claude/pause-keepalive-fullstack`. Resume with `rm`. The pause file blocks both the dev and QA sides.
 
-**Dry-run once:** `./scripts/keepalive-cron.sh --dry-run` — prints what it would do, writes a status file, doesn't invoke Claude.
+**Dry-run once:** `./scripts/keepalive-cron.sh --dry-run` — prints what it would do, writes a status file, doesn't invoke either CLI.
 
-**Caveat.** `claude --print --continue` resumes *the most recent conversation* in this directory. If an interactive Claude session is open here, the cron nudge resumes it. For strict separation, run the cron loop against a dedicated checkout.
+**Disable QA for a run** (dev only): `./scripts/keepalive-cron.sh --no-qa-after-dev`.
+
+**Override the Codex CLI** if your version uses different flags: `./scripts/keepalive-cron.sh --codex-cmd "codex --non-interactive"`. The default is `codex exec`.
+
+**Caveats.**
+- `claude --print --continue` resumes *the most recent conversation* in this directory. If an interactive Claude session is open here, the cron nudge resumes it. For strict separation, run the cron loop against a dedicated checkout.
+- Codex starts fresh each run — no conversation-reuse concern on the QA side. Each QA sweep is a clean verdict pass over what's currently in the inbox.
 
 ## File Paths
 
