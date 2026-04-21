@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING
+**QA:** PENDING_MANUAL_REVIEW
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.3)
@@ -140,3 +140,11 @@ Local gate verification (all green):
 - Files: `Cargo.toml`, `crates/sfx-dsp/Cargo.toml`, `crates/sfx-dsp/src/lib.rs`, `crates/sfx-dsp/src/transform.rs` (new), `crates/sfx-dsp/src/transforms/mod.rs` (new), `crates/sfx-dsp/src/transforms/gain.rs` (new, ~330 lines including tests).
 - Commit: `105cc45` ("M1.3 (FS-ISS-004): Transform trait + Gain envelope")
 - Push: pushed to `origin/main` as commit `105cc45` on 2026-04-21.
+
+## QA Verification (2026-04-21T07:49:22Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present

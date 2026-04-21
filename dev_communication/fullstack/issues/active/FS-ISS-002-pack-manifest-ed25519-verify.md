@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-20
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.1)
@@ -188,3 +188,10 @@ Local verification (all green):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T07:48:31Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: verify-before-parse coverage is strong (`positive_verifies_and_parses_clean_fixture`, `flipped_bit_in_manifest_fails_signature`, `truncated_signature_rejected_as_bad_format`, `wrong_public_key_fails_verification`, `signature_check_runs_before_parse`), but the all-zero public-key acceptance criterion is not satisfied as written.
+- Manual Review: accuracy/ADR/security mostly pass, but there is a contract drift at `crates/sfx-pack-manifest/src/lib.rs:301-327`. The implementation and test now explicitly accept `ManifestError::SignatureFailed` for an all-zero public key, while this issue's acceptance criteria require `BadPublicKeyFormat` for that case.
+- Unblock Criteria: either (1) tighten the implementation so an all-zero / low-order public key deterministically maps to `BadPublicKeyFormat` and restore the stricter assertion, or (2) update the issue/spec acceptance criteria to state that any error outcome is acceptable for a bogus key and re-handoff with that contract change recorded.
