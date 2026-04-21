@@ -24,6 +24,7 @@ schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 insta.workspace = true
+sfx-test-fixtures = { path = "../sfx-test-fixtures" }
 
 # Native-only schema-emission binary; WASM builds skip it (no main on wasm32).
 [[bin]]

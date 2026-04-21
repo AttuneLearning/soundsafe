@@ -1,16 +1,20 @@
 //! Soundsafe pack manifest — types, parsing, signature verification.
 //!
 //! Mirrors the manifest JSON shape documented in `sound-delivery.md §2`.
-//! Ed25519 signature verification (via `ed25519-dalek`) lands in M1.
+//! The public verification entry point is [`verify_and_parse`], which
+//! checks an Ed25519 detached signature **before** parsing the manifest
+//! body. Tampered inputs never produce a partially-parsed [`Manifest`]
+//! — this is load-bearing per ADR-006 ("verify the manifest signature
+//! before trusting any value from inside the manifest").
 //!
-//! The `therapist` field is reserved (ADR-004) for plugin-authored content
-//! and round-trips through serde without v1 code reading it.
-
-#![cfg_attr(not(any(test, feature = "emit-schema")), no_std)]
+//! The `therapist` field on [`Manifest`] is reserved (ADR-004) for
+//! plugin-authored content and round-trips through serde without v1 code
+//! reading it.
 
 extern crate alloc;
 
 use alloc::{string::String, vec::Vec};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 /// Required tier to play a pack. Mirrors the consumer-side tier ladder.
@@ -72,6 +76,100 @@ pub struct Manifest {
     pub therapist: Option<serde_json::Value>,
 }
 
+// ----------------------------------------------------------------------
+// Verification
+// ----------------------------------------------------------------------
+
+/// Errors produced by [`verify_and_parse`].
+///
+/// Distinct variants for each failure class so callers can distinguish
+/// "this isn't even shaped like a manifest" from "this *is* shaped like a
+/// manifest but the signature doesn't verify" — useful for logging and
+/// for differentiating client-side bugs from active tampering.
+#[derive(Debug)]
+pub enum ManifestError {
+    /// The supplied 32 bytes are not a valid Ed25519 verification key
+    /// (e.g. low-order point). The publisher key bundled with the client
+    /// should never produce this — if it does, the bundled key is broken.
+    BadPublicKeyFormat,
+    /// The supplied signature bytes are not a well-formed 64-byte
+    /// Ed25519 signature.
+    BadSignatureFormat,
+    /// The signature did not verify against the supplied public key over
+    /// the supplied manifest bytes. The manifest, the signature, or the
+    /// key has been tampered with — or the publisher key has rotated and
+    /// the client is verifying against a stale key.
+    SignatureFailed,
+    /// The manifest bytes verified, but `serde_json` could not parse them.
+    /// This indicates a publisher-side bug or corruption that survived
+    /// the signature check, which should be impossible if the publisher
+    /// signs only well-formed JSON.
+    Parse(serde_json::Error),
+}
+
+impl core::fmt::Display for ManifestError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::BadPublicKeyFormat => f.write_str("bad Ed25519 public key format"),
+            Self::BadSignatureFormat => f.write_str("bad Ed25519 signature format"),
+            Self::SignatureFailed => f.write_str("Ed25519 signature verification failed"),
+            Self::Parse(_) => f.write_str("manifest JSON parse failed after signature verified"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for ManifestError {}
+
+impl From<serde_json::Error> for ManifestError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Parse(err)
+    }
+}
+
+/// Verify the Ed25519 detached signature over `manifest_bytes` and, on
+/// success, parse the manifest body.
+///
+/// **Order is load-bearing:** the signature is verified first; only on
+/// success do we hand the bytes to `serde_json`. A tampered manifest
+/// never produces a partially-parsed [`Manifest`] value (ADR-006).
+///
+/// # Arguments
+///
+/// - `manifest_bytes`: the exact bytes the publisher signed. The verifier
+///   must NOT re-serialize — round-trip through `serde` would change the
+///   bytes (whitespace, key order) and break verification.
+/// - `signature_bytes`: 64-byte Ed25519 detached signature. Other lengths
+///   are rejected with [`ManifestError::BadSignatureFormat`].
+/// - `public_key`: 32-byte Ed25519 verification key. The bundled
+///   publisher key (eventually delivered via the client init path).
+///
+/// # Errors
+///
+/// See [`ManifestError`].
+pub fn verify_and_parse(
+    manifest_bytes: &[u8],
+    signature_bytes: &[u8],
+    public_key: &[u8; 32],
+) -> Result<Manifest, ManifestError> {
+    // Step 1: parse the public key. Returns Err for low-order points etc.
+    let verifying_key =
+        VerifyingKey::from_bytes(public_key).map_err(|_| ManifestError::BadPublicKeyFormat)?;
+
+    // Step 2: parse the signature. Ed25519 sigs are always 64 bytes.
+    let signature = Signature::from_slice(signature_bytes)
+        .map_err(|_| ManifestError::BadSignatureFormat)?;
+
+    // Step 3: verify. ed25519-dalek 2.x's `verify` is strict by default.
+    verifying_key
+        .verify(manifest_bytes, &signature)
+        .map_err(|_| ManifestError::SignatureFailed)?;
+
+    // Step 4: only now parse the manifest body.
+    let manifest: Manifest = serde_json::from_slice(manifest_bytes)?;
+    Ok(manifest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,5 +216,99 @@ mod tests {
         assert!(m.therapist.is_some());
         let out = serde_json::to_string(&m).unwrap();
         assert!(out.contains("assignment_class"));
+    }
+}
+
+#[cfg(test)]
+mod verify_and_parse_tests {
+    use super::*;
+    use sfx_test_fixtures::hello_pack;
+
+    #[test]
+    fn positive_verifies_and_parses_clean_fixture() {
+        let pack = hello_pack(0);
+        let manifest = verify_and_parse(
+            &pack.manifest_bytes,
+            &pack.signature_bytes,
+            &pack.public_key,
+        )
+        .expect("clean fixture must verify and parse");
+        assert_eq!(manifest.pack_id, "hello");
+        assert_eq!(manifest.tier_required, TierRequired::Free);
+        assert_eq!(manifest.files.len(), 1);
+    }
+
+    #[test]
+    fn flipped_bit_in_manifest_fails_signature() {
+        let pack = hello_pack(0);
+        let mut tampered = pack.manifest_bytes.clone();
+        tampered[10] ^= 0x01; // flip a bit deep enough to be inside the JSON body
+        let err = verify_and_parse(&tampered, &pack.signature_bytes, &pack.public_key)
+            .expect_err("tampered manifest must fail verification");
+        assert!(
+            matches!(err, ManifestError::SignatureFailed),
+            "expected SignatureFailed, got {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn truncated_signature_rejected_as_bad_format() {
+        let pack = hello_pack(0);
+        let truncated = &pack.signature_bytes[..60]; // Ed25519 sigs are 64 bytes
+        let err = verify_and_parse(&pack.manifest_bytes, truncated, &pack.public_key)
+            .expect_err("truncated signature must be rejected");
+        assert!(
+            matches!(err, ManifestError::BadSignatureFormat),
+            "expected BadSignatureFormat, got {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn wrong_public_key_fails_verification() {
+        let pack = hello_pack(0);
+        let other = hello_pack(1); // independent crypto material
+        let err = verify_and_parse(
+            &pack.manifest_bytes,
+            &pack.signature_bytes,
+            &other.public_key,
+        )
+        .expect_err("verification against wrong key must fail");
+        assert!(
+            matches!(err, ManifestError::SignatureFailed),
+            "expected SignatureFailed, got {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn signature_check_runs_before_parse() {
+        // Even with non-JSON bytes, we must reach the SignatureFailed
+        // path — never a Parse error — because the signature check is
+        // the first thing we do. This is the load-bearing invariant.
+        let pack = hello_pack(0);
+        let bogus = b"this is not even json".to_vec();
+        let err = verify_and_parse(&bogus, &pack.signature_bytes, &pack.public_key)
+            .expect_err("bogus bytes must fail at signature, not parse");
+        assert!(
+            matches!(err, ManifestError::SignatureFailed),
+            "expected SignatureFailed (signature checked before parse), got {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn bad_public_key_rejected_as_format_error() {
+        let pack = hello_pack(0);
+        // All-zero is a low-order point and should be rejected by VerifyingKey::from_bytes.
+        let zero_key = [0u8; 32];
+        let err = verify_and_parse(&pack.manifest_bytes, &pack.signature_bytes, &zero_key)
+            .expect_err("all-zero key is invalid");
+        assert!(
+            matches!(err, ManifestError::BadPublicKeyFormat),
+            "expected BadPublicKeyFormat, got {:?}",
+            err
+        );
     }
 }
