@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** BLOCKED
+**QA:** PENDING_MANUAL_REVIEW
 **Created:** 2026-04-20
 **Started:** 2026-04-20
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.1)
@@ -225,3 +225,11 @@ Local verification:
 - Files: `crates/sfx-pack-manifest/src/lib.rs` (added `is_weak()` gate in `verify_and_parse`; restored the strict test assertion).
 - Commit: `005cb82` ("FS-ISS-002: restore deterministic BadPublicKeyFormat for weak keys")
 - Push: pushed to `origin/main` as commit `005cb82` on 2026-04-21.
+
+## QA Verification (2026-04-21T08:01:33Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present
