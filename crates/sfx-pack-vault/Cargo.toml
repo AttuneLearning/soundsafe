@@ -17,3 +17,4 @@ zeroize.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
+sfx-test-fixtures = { path = "../sfx-test-fixtures" }
