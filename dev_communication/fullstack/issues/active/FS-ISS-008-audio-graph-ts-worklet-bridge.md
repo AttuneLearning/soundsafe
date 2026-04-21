@@ -1,9 +1,10 @@
 # FS-ISS-008: @soundsafe/audio-graph-ts AudioWorklet + WASM bridge + fast-ring
 
 **Priority:** High
-**Status:** QUEUE
+**Status:** ACTIVE
 **QA:** PENDING
 **Created:** 2026-04-20
+**Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.7)
 **Assigned To:** Fullstack-Dev
 
@@ -59,12 +60,55 @@ Per ADR-020, the worklet owns the real-time WASM instance. Parameter changes fro
 
 ## Dev Handoff to QA
 
-- [ ] Development Complete
-- [ ] Awaiting QA
-- [ ] Typecheck passed (`pnpm -r typecheck`)
-- [ ] Unit tests passed (`pnpm --filter @soundsafe/audio-graph-ts test`)
-- [ ] Integration tests passed (worklet boot verified in dev server, see Notes)
-- [ ] UAT tests passed (n/a — consumed by M1.9)
+- [x] Development Complete
+- [x] Awaiting QA
+- [x] Typecheck passed (`pnpm -r typecheck` — 9 packages)
+- [x] Unit tests passed (`pnpm test` — 22 new audio-graph-ts tests; full suite 27)
+- [ ] Integration tests passed (worklet boot in dev server) — **deferred to M1.9 (consumer-app integration) / M1.10 (Playwright E2E)**
+- [x] UAT tests passed (n/a — consumed by M1.9)
+
+## Dev Response (2026-04-21T08:20:00Z)
+
+**Status:** Dev-complete; awaiting QA verification.
+
+Landed the main-thread bridge with a testable architecture: the
+`AudioEngine` class accepts an injected `AudioEngineHost` so vitest
+tests drive the state machine via `InMemoryHost` without a real
+`AudioContext`. The `WebAudioHost` implementation and the actual
+worklet boot are intentionally deferred to M1.9 (consumer-app
+integration) and M1.10 (Playwright E2E), which is where driving a
+real `AudioContext` end-to-end belongs per the issue note.
+
+Files landed:
+- `AudioEngine.ts` — init/play/pause/loadRoadmapStep/setParam/
+  panicStop/subscribe/subscribeState/pollFastRing/close.
+  panicStop idempotent; state machine: `uninitialized → initializing
+  → idle → playing/panicking/panicked/errored`.
+- `fast-ring.ts` — SPSC ring over `SharedArrayBuffer` with a 4-u32
+  header (writer_pos, reader_pos, dropped_events, reserved) + 256 ×
+  16-byte records. Writer (worklet) and reader (main thread) use
+  `Atomics.load/store`; overflow increments a saturating drop counter.
+- `messages.ts` — Outbound/Inbound/AudioEvent wire types and
+  `parseEventsJson` (filters unknown kinds defensively).
+- `react.ts` — `useAudioEngineState`, `makePlayheadStore`,
+  `usePlayhead` hooks via `useSyncExternalStore`.
+- `worklet/processor.ts` — `AudioWorkletProcessor` skeleton. Loaded
+  at runtime only (imports a runtime-only Rustcore module), so it's
+  off the vitest path.
+
+22 new vitest tests (fast-ring, messages, AudioEngine). Full suite
+now 27 tests. Worklet boot itself is M1.9's job.
+
+Local verification:
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 76/76 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 27 vitest tests pass
+- `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
+
+- Files: `packages/audio-graph-ts/package.json` (vitest + react deps), `packages/audio-graph-ts/src/{AudioEngine,fast-ring,messages,react}.ts`, `packages/audio-graph-ts/src/worklet/processor.ts`, `packages/audio-graph-ts/src/__tests__/{fast-ring,messages,AudioEngine}.test.ts`, `packages/audio-graph-ts/src/index.ts` (re-exports), `pnpm-lock.yaml`.
+- Commit: `2c8a75b` ("M1.7 (FS-ISS-008): @soundsafe/audio-graph-ts bridge")
+- Push: pushed to `origin/main` as commit `2c8a75b` on 2026-04-21.
 
 ## QA Verification Evidence
 

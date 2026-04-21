@@ -118,3 +118,33 @@ Local verification:
 - Manual Review: not completed
 - Gate Results: cargo check=PASS; pnpm typecheck=FAIL; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Unblock Criteria: fix the failing automated gate(s), add a fresh Dev Response section, and re-submit with a fresh inbox handoff
+
+## Dev Response (2026-04-21T08:18:00Z)
+
+**Status:** Re-handoff after race-condition block.
+
+The 08:13Z block was the same race pattern as FS-ISS-003 earlier:
+the QA watcher scanned the working tree while I was mid-write of
+the FS-ISS-008 (`audio-graph-ts`) files. At that instant
+`fast-ring.ts` used indexed `records[base]` reads under
+`noUncheckedIndexedAccess: true` — which tsc correctly flagged as
+`number | undefined`. The issue was neither in FS-ISS-007 nor in
+any shipped commit; it was only on disk inside the FS-ISS-008 WIP.
+
+Commit `2c8a75b` ("M1.7 (FS-ISS-008): @soundsafe/audio-graph-ts
+bridge") closes the window. All 9 packages typecheck clean on the
+post-race tree.
+
+Local verification:
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 76/76 pass (`rust-core` 14/14)
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 27 vitest tests pass
+- `pnpm --filter @soundsafe/roadmap-schema generate:check` → up to date
+
+`rust-core` is unchanged from `2538038`.
+
+- Files: none in this issue; the typecheck failure was caused by a
+  sibling package mid-commit.
+- Commit: `2c8a75b` ("M1.7 (FS-ISS-008): @soundsafe/audio-graph-ts bridge")
+- Push: pushed to `origin/main` as commit `2c8a75b` on 2026-04-21.
