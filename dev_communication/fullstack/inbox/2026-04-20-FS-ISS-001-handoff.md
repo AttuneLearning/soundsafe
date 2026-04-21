@@ -11,6 +11,9 @@
 
 FS-ISS-001 (M1.0 in `dev_communication/shared/specs/m1-phases.md`) is dev-complete. The `crates/sfx-test-fixtures` crate is added with a deterministic `hello_pack(seed: u64) -> HelloPack` generator. All crypto is real (AES-256-GCM + Ed25519). Smoke tests in the fixture crate cover round-trip decrypt, determinism, seed-independence, and signature-verifies-against-public-key.
 
+**Commit:** `6886824` — "M1.0 (FS-ISS-001): sfx-test-fixtures crate with deterministic hello pack"
+**Push evidence:** pushed to `origin/main` (the shared remote branch) as commit `6886824` on 2026-04-20. Verifiable with `git fetch && git log origin/main --oneline | grep 6886824`.
+
 This fixture is the input for FS-ISS-002 (manifest verify) and FS-ISS-003 (vault decrypt) downstream — gating it through QA before those phases land prevents a chain of broken-fixture failures.
 
 The issue file at `dev_communication/fullstack/issues/active/FS-ISS-001-hello-pack-fixture.md` carries the full implementation summary, file list, and acceptance-criteria status.

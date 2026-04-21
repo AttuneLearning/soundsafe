@@ -66,6 +66,30 @@ Implement real AES-256-GCM decryption with `Zeroizing<[u8; 32]>` key handling pe
 - `crates/sfx-pack-vault/Cargo.toml` (added dev-dep)
 - `crates/sfx-pack-vault/src/lib.rs` (full implementation; replaces the M0 stub)
 
+## Dev Response (2026-04-20T18:36:00Z)
+
+**Status:** Dev-complete; awaiting QA verification.
+
+Implemented `PackVault` and `decrypt_into` in `sfx-pack-vault` per
+ADR-010. Key field is `Zeroizing<[u8; 32]>` — type-enforced ADR-010
+zeroize on Drop. GCM tag verified before plaintext is committed (via
+`aes-gcm 0.10`'s `decrypt_in_place_detached`). Defense-in-depth: on
+`TagMismatch`, the output buffer is zeroed in the ciphertext range so
+a buggy caller that ignores the `Err` cannot observe partial plaintext.
+
+Eight tests via `sfx_test_fixtures::hello_pack`: positive round-trip,
+flipped bit (asserts buffer-zero-on-failure), wrong nonce, wrong key,
+bad nonce length, bad tag length, undersized output buffer, drop
+smoke test.
+
+Same `no_std` removal as M1.1 (aes-gcm with default features brings
+in std anyway).
+
+- Files: `crates/sfx-pack-vault/Cargo.toml` (added dev-dep on sfx-test-fixtures), `crates/sfx-pack-vault/src/lib.rs` (full implementation replacing the M0 stub; ~280 lines)
+- Gates: `cargo check --workspace` and `cargo nextest run -p sfx-pack-vault` were **NOT run** in the dev session (no Rust toolchain available); QA must run both. Expected: 8 tests pass.
+- Commit: `b184bab` ("M1.2 (FS-ISS-003): sfx-pack-vault PackVault + decrypt_into with Zeroize")
+- Push: pushed to `origin/main` as commit `b184bab` on 2026-04-20.
+
 ## QA Verification Evidence
 
 - QA Verdict:

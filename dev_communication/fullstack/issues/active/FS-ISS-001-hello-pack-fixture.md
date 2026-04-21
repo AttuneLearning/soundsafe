@@ -72,6 +72,22 @@ All crypto is real (`aes-gcm`, `ed25519-dalek`). No placeholder bytes — the fi
 - `crates/sfx-test-fixtures/Cargo.toml` (new).
 - `crates/sfx-test-fixtures/src/lib.rs` (new, ~180 lines including tests).
 
+## Dev Response (2026-04-20T18:29:00Z)
+
+**Status:** Dev-complete; awaiting QA verification.
+
+Implemented `crates/sfx-test-fixtures` as specified. Hand-rolled real
+AES-256-GCM + Ed25519 + SHA-256 + base64 round-trip verified inside the
+fixture's own smoke tests. Determinism verified (same seed → bit-identical
+output). Seed independence verified (different seeds → independent crypto
+material). Signature verifies against the bundled public key via
+`ed25519-dalek` directly.
+
+- Files: `Cargo.toml` (workspace member + 4 new workspace deps), `crates/sfx-test-fixtures/Cargo.toml` (new), `crates/sfx-test-fixtures/src/lib.rs` (new, ~280 lines including tests)
+- Gates: `cargo check --workspace` and `cargo nextest run -p sfx-test-fixtures` were **NOT run** in the dev session (no Rust toolchain available); QA must run both. All other gates n/a (no UI, no contracts).
+- Commit: `6886824` ("M1.0 (FS-ISS-001): sfx-test-fixtures crate with deterministic hello pack")
+- Push: pushed to `origin/main` as commit `6886824` on 2026-04-20.
+
 ## QA Verification Evidence
 
 - QA Verdict:
