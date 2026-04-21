@@ -9,13 +9,16 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "test": "echo 'no tests yet (M0)'",
-    "generate": "echo 'TODO: cargo run -p sfx-pack-manifest --features emit-schema | json-schema-to-zod (lands in M1)'"
+    "test": "vitest run",
+    "generate": "node ./scripts/generate.mjs",
+    "generate:check": "node ./scripts/generate.mjs --check"
   },
   "dependencies": {
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "json-schema-to-zod": "^2.4.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.4"
   }
 }

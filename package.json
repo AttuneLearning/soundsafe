@@ -11,17 +11,21 @@
   "scripts": {
     "typecheck": "pnpm -r --parallel typecheck",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "vitest run",
+    "test:packages": "pnpm -r test",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,json,md,yaml,yml}\" --ignore-path .gitignore",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md,yaml,yml}\" --ignore-path .gitignore",
     "dev": "pnpm --filter @soundsafe/consumer-app dev",
     "wasm:build": "wasm-pack build packages/rust-core --target web --out-dir pkg",
+    "wasm:test": "wasm-pack test --node packages/rust-core",
     "cargo:check": "cargo check --workspace",
-    "cargo:test": "cargo nextest run --workspace"
+    "cargo:test": "cargo nextest run --workspace",
+    "schema:check": "pnpm --filter @soundsafe/roadmap-schema generate:check"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.4"
   }
 }

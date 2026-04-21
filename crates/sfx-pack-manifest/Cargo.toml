@@ -24,3 +24,9 @@ schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 insta.workspace = true
+
+# Native-only schema-emission binary; WASM builds skip it (no main on wasm32).
+[[bin]]
+name = "emit-schema"
+path = "src/bin/emit_schema.rs"
+required-features = ["emit-schema"]
