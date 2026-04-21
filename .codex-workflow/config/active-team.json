@@ -1,0 +1,46 @@
+{
+  "pack_name": "codex-workflow",
+  "team_id": "fullstack",
+  "team_profile": {
+    "name": "Fullstack",
+    "alias": "fs",
+    "issue_prefix": "FS-ISS",
+    "description": "Single-team profile that consolidates frontend + backend (+ cloud) ownership. Recommended for solo / small-team projects where one contributor carries the codebase end-to-end. Multi-team projects should prefer the specialized frontend/backend/cloud roles for clearer cross-team comms.",
+    "sub_teams": {
+      "fullstack-dev": {
+        "name": "Fullstack-Dev",
+        "function": "dev",
+        "issue_prefix": "FS-ISS",
+        "role_guidance": "dev_communication/shared/guidance/FULLSTACK_DEV_ROLE_GUIDANCE.md"
+      },
+      "fullstack-qa": {
+        "name": "Fullstack-QA",
+        "function": "qa",
+        "issue_prefix": "FS-QA",
+        "role_guidance": "dev_communication/shared/guidance/FULLSTACK_QA_ROLE_GUIDANCE.md"
+      }
+    },
+    "enabled_skills": [
+      "comms",
+      "adr",
+      "memory",
+      "context",
+      "reflect",
+      "refine"
+    ],
+    "default_paths": {
+      "inbox": "dev_communication/fullstack/inbox",
+      "issues_queue": "dev_communication/fullstack/issues/queue",
+      "issues_active": "dev_communication/fullstack/issues/active",
+      "issues_completed": "dev_communication/fullstack/issues/completed",
+      "architecture_root": "dev_communication/shared/architecture",
+      "memory_root": "./memory",
+      "status": "dev_communication/fullstack/status.md"
+    }
+  },
+  "allowed_sub_roles": [
+    "fullstack-dev",
+    "fullstack-qa"
+  ],
+  "project_root": "."
+}

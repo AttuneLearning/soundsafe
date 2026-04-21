@@ -1,0 +1,14 @@
+{
+  "$comment": "Learned team composition from post-dev review. Used by Phase 1.5 team selection.",
+  "issue_type": "{issue-type}",
+  "qualifier": "{qualifier}",
+  "preset_used": "{preset_name}",
+  "preset_ideal": "{preset_name}",
+  "teammates_spawned": [],
+  "mid_dev_adjustments": "none",
+  "bottlenecks": "none",
+  "effectiveness": "excellent|good|fair|poor",
+  "recommendation": "use same preset | try different preset",
+  "recorded_from": "{session-file-path}",
+  "recorded_at": "YYYY-MM-DD"
+}

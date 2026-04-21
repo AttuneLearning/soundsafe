@@ -1,0 +1,20 @@
+# =============================================================================
+# Project Configuration for Template Rendering
+# =============================================================================
+
+project_name: soundsafe
+
+project_description: |
+  This is a sound exposure, sensitivity, and reprocessing application.  The intent is to give 
+  a user the option of finding relaxation, trying different sounds, and then self-designing a therapeutic process
+  the intensive therapy will be reserved for use with a professional.
+
+spec_documents: |
+  No canonical spec documents configured.
+
+quick_reference: |
+  ```bash
+  npm run dev          # Start dev server
+  npm test             # Run all tests
+  npx tsc --noEmit     # Type check
+  ```

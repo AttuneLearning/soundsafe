@@ -1,0 +1,18 @@
+{
+  "team_id": "fullstack",
+  "team_name": "Fullstack",
+  "allowed_sub_roles": [
+    "fullstack-dev",
+    "fullstack-qa"
+  ],
+  "role_definitions": "ai_team_config/roles/",
+  "paths": {
+    "inbox": "dev_communication/fullstack/inbox",
+    "issues_queue": "dev_communication/fullstack/issues/queue",
+    "issues_active": "dev_communication/fullstack/issues/active",
+    "issues_completed": "dev_communication/fullstack/issues/completed",
+    "architecture_root": "dev_communication/shared/architecture",
+    "memory_root": "./memory",
+    "status": "dev_communication/fullstack/status.md"
+  }
+}
