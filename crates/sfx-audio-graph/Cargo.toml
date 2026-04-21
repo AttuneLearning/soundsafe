@@ -19,4 +19,4 @@ atomic_float.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-assert-no-alloc.workspace = true
+assert_no_alloc.workspace = true

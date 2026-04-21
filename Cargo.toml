@@ -69,7 +69,7 @@ thiserror = "1"
 proptest = "1"
 rstest = "0.21"
 insta = "1"
-assert-no-alloc = "1"
+assert_no_alloc = "1"
 
 [profile.release]
 opt-level = 3
