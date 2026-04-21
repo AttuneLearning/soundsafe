@@ -117,6 +117,9 @@ importers:
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(happy-dom@14.12.3)
 
   packages/platform:
     devDependencies:

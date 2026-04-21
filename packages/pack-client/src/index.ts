@@ -1,11 +1,19 @@
-// @soundsafe/pack-client — CDN fetch, Service Worker pack cache,
-// decrypt-worker orchestration.
-//
-// OPFS hardening (ADR-025) lives here:
-//   - Decrypted files are stored under v4-UUID names with no extensions.
-//   - URL.createObjectURL on OPFS handles is forbidden by lint rule.
-//   - The opfs_index mapping table (in IndexedDB) resolves soundId → handle.
-//
-// Implementation lands in M1.
+// @soundsafe/pack-client — pack download, entitlement, decrypt, OPFS.
 
-export const __PACKAGE_NAME = '@soundsafe/pack-client';
+export { PackClient } from './client.js';
+export type { PackClientDeps } from './client.js';
+export type {
+  CatalogResponse,
+  EncryptedFileBytes,
+  EntitlementResponse,
+  OpfsIndexRow,
+  PackBytes,
+  PackMeta,
+  ProgressCb,
+  UnlockOutcome,
+} from './types.js';
+export type { OpfsIndex } from './opfs-index.js';
+export { InMemoryOpfsIndex } from './opfs-index.js';
+export type { OpfsStore } from './opfs-store.js';
+export { InMemoryOpfsStore, uuidV4 } from './opfs-store.js';
+export type { RustcoreBridge } from './rustcore-bridge.js';

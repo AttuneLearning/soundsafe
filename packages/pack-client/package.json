@@ -9,13 +9,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "test": "echo 'no tests yet (M0)'"
+    "test": "vitest run"
   },
   "dependencies": {
     "@soundsafe/platform": "workspace:*",
     "@soundsafe/roadmap-schema": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.4"
   }
 }
