@@ -5,8 +5,12 @@
  * Pipeline (per ADR-016 stability + plan §Rust↔TS boundary):
  *   1. cargo run -p sfx-pack-manifest --bin emit-schema --features emit-schema
  *      → JSON Schema for the Manifest type, on stdout.
- *   2. json-schema-to-zod converts it to a Zod source string.
- *   3. We wrap it with a header + write to src/generated.ts.
+ *   2. For each entry under `definitions`, emit `export const X = ...`
+ *      using json-schema-to-zod. The top-level Manifest is emitted last,
+ *      with a parserOverride that rewrites `$ref` nodes to identifier
+ *      references (so `TierRequired` / `PackFile` stay as named schemas
+ *      rather than being inlined into `z.any()`).
+ *   3. Prepend a header and write to src/generated.ts.
  *
  * Usage:
  *   node scripts/generate.mjs           # writes src/generated.ts
@@ -28,7 +32,6 @@ const args = new Set(process.argv.slice(2));
 const checkOnly = args.has('--check');
 
 function emitSchemaFromCargo() {
-  // Suppress cargo's prelude on stderr by --quiet; capture stdout (the JSON).
   const stdout = execFileSync(
     'cargo',
     [
@@ -46,12 +49,47 @@ function emitSchemaFromCargo() {
   return JSON.parse(stdout);
 }
 
-function buildGeneratedSource(schema) {
-  const zodSrc = jsonSchemaToZod(schema, {
-    name: 'Manifest',
-    module: 'esm',
-    type: true, // also emit a TS type
+/**
+ * parserOverride that turns `$ref: "#/definitions/X"` into the bare
+ * identifier `X`. json-schema-to-zod inserts the returned string verbatim
+ * into the generated source, so returning `"TierRequired"` produces
+ * `TierRequired` as a variable reference in the Zod expression.
+ */
+function refOverride(schema) {
+  if (schema && typeof schema === 'object' && typeof schema.$ref === 'string') {
+    const prefix = '#/definitions/';
+    if (schema.$ref.startsWith(prefix)) {
+      return schema.$ref.slice(prefix.length);
+    }
+  }
+  return undefined;
+}
+
+function emitZod(schema) {
+  return jsonSchemaToZod(schema, {
+    module: 'none',
+    parserOverride: refOverride,
   });
+}
+
+function buildGeneratedSource(schema) {
+  const defs = schema.definitions ?? {};
+  const defNames = Object.keys(defs);
+
+  const blocks = [];
+
+  for (const name of defNames) {
+    const expr = emitZod(defs[name]);
+    blocks.push(`export const ${name} = ${expr};`);
+    blocks.push(`export type ${name} = z.infer<typeof ${name}>;`);
+    blocks.push('');
+  }
+
+  const rootSchemaNoDefs = { ...schema };
+  delete rootSchemaNoDefs.definitions;
+  const rootExpr = emitZod(rootSchemaNoDefs);
+  blocks.push(`export const Manifest = ${rootExpr};`);
+  blocks.push(`export type Manifest = z.infer<typeof Manifest>;`);
 
   const header = [
     '// THIS FILE IS GENERATED — DO NOT EDIT BY HAND.',
@@ -60,9 +98,11 @@ function buildGeneratedSource(schema) {
     '',
     '/* eslint-disable */',
     '',
+    'import { z } from "zod";',
+    '',
   ].join('\n');
 
-  return `${header}\n${zodSrc}\n`;
+  return `${header}\n${blocks.join('\n')}\n`;
 }
 
 function main() {
