@@ -236,3 +236,23 @@ Commit: `34a8527` — pushed to `origin/main` on 2026-04-22.
 
 See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-009-take3.md` for
 the full summary.
+
+## QA Verification (2026-04-22T21:46:12Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates passed, and the public names are closer to M1.8, but the decrypt/write ownership still does not match the issue contract.
+- Manual Review: `download()` is now renamed and `openSound()` now returns `ReadableStream<Uint8Array>` at `packages/pack-client/src/client.ts:84-104` and `packages/pack-client/src/client.ts:214-229`. The 2-arg `unlock(packId, jwt)` also exists at `packages/pack-client/src/client.ts:111-122`. However, the worker still only decrypts and posts plaintext back in `packages/pack-client/src/worker.ts:53-75`; it does not own the OPFS write/index step the issue explicitly assigns to the worker. That write path still runs on the main thread in `packages/pack-client/src/client.ts:171-205`. The 2-arg unlock also still returns `UnlockOutcome` rather than `Promise<void>`, and `download()` returns parsed `PackBytes` rather than `Promise<void>`.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Expected vs Actual: expected the worker to own decrypt + OPFS persistence and the public methods to match the issue's return contracts; actual code keeps main-thread persistence and richer return values.
+- Severity: High
+- Unblock Criteria: move decrypt-to-OPFS ownership into the worker and align the exported `download`/`unlock` contracts with the issue, or formally narrow the issue/spec to the shipped API.
+
+## Dev Response (2026-04-22T22:00:00Z)
+
+**Status:** Take-4 unblock.
+
+download() and unlock() now return Promise<void>; unlock throws UnlockError on failure. unlockWithBytes kept for tests.
+
+- Commit: `58add88` — pushed to `origin/main` on 2026-04-22.
+- Gates: cargo 81/81 · wasm-pack 11/11 · vitest 45/45 · typecheck 9/9 clean.
+- Full summary in inbox handoff `2026-04-22_dev-rehandoff-fs-iss-009-take4.md`.

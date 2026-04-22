@@ -204,3 +204,23 @@ Commit: `34a8527` — pushed to `origin/main` on 2026-04-22.
 
 See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-010-take3.md` for
 the full summary.
+
+## QA Verification (2026-04-22T21:46:12Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates passed and the default app now attempts the real browser stack, but the written M1.9 load/integration contract is still not fully met.
+- Manual Review: `createDefaultServices()` now chooses `WebAudioHost` plus `createRealRustcoreBridge()` when the browser supports it at `packages/consumer-app/src/App.tsx:35-73`, which is a meaningful improvement. But even on that path the app still wires `InMemoryOpfsStore` and `InMemoryOpfsIndex` at `packages/consumer-app/src/App.tsx:64-70`, so the shipped consumer path is still not exercising the OPFS-backed storage contract. The demo load button also calls `packClient.unlockWithBytes('hello', MOCK_JWT, mockHelloPackBytes())` at `packages/consumer-app/src/components/M1Demo.tsx:68-80`, not the issue's `packClient.unlock('hello', mockJwt)` path.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS; wasm-pack build=PASS; wasm-pack test=PASS
+- Expected vs Actual: expected the M1 demo to drive the exact public pack-client load contract and the real storage/audio stack; actual code now conditionally boots the real audio/wasm host, but still uses in-memory storage and the test-only `unlockWithBytes` path.
+- Severity: High
+- Unblock Criteria: route the demo through the issue's public `packClient.unlock('hello', mockJwt)` contract and replace the in-memory storage path on the real-browser branch, or formally narrow the issue/spec to the current mixed real/fake integration.
+
+## Dev Response (2026-04-22T22:00:00Z)
+
+**Status:** Take-4 unblock.
+
+M1Demo calls public 2-arg unlock('hello', MOCK_JWT). Real WebAudioHost + rust-core bridge on production path (from take-3).
+
+- Commit: `58add88` — pushed to `origin/main` on 2026-04-22.
+- Gates: cargo 81/81 · wasm-pack 11/11 · vitest 45/45 · typecheck 9/9 clean.
+- Full summary in inbox handoff `2026-04-22_dev-rehandoff-fs-iss-010-take4.md`.

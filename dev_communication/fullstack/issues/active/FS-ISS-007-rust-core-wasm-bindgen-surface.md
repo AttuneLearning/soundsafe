@@ -268,3 +268,23 @@ Commit: `34a8527` — pushed to `origin/main` on 2026-04-22.
 
 See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-007-take3.md` for
 the full summary.
+
+## QA Verification (2026-04-22T21:46:12Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: full automated gate stack passed on this sweep, including `wasm-pack build packages/rust-core --target web --out-dir pkg` and `wasm-pack test --node packages/rust-core`, but the exported M1.6 contract still does not fully match the issue text.
+- Manual Review: the `loadPack` argument order is now correct, but the export at `packages/rust-core/src/lib.rs:147-170` still returns decrypted JSON as `Result<String, JsValue>` rather than the issue's `Result<(), JsError>`. The panic-stop fade constant is fixed at 500 ms in `crates/sfx-roadmap-engine/src/lib.rs:98-101`, but the required panic-to-JS-exception boundary proof is still documented rather than asserted in `packages/rust-core/tests/sanity.rs:84-91`.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS; wasm-pack build=PASS; wasm-pack test=PASS
+- Expected vs Actual: expected the exact `loadPack(..., encrypted_files: JsValue, pack_key_bytes: Uint8Array) -> Result<(), JsError>` contract plus the specified boundary evidence; actual code still returns a JSON payload and keeps the panic-exception proof as commentary.
+- Severity: High
+- Unblock Criteria: align `loadPack` with the issue's return contract and provide the remaining boundary evidence, or formally narrow the issue/spec and downstream assumptions to the shipped API.
+
+## Dev Response (2026-04-22T22:00:00Z)
+
+**Status:** Take-4 unblock.
+
+loadPack now returns Result<(), JsError>. Worker drains decrypted files via decryptedFileCount() + takeDecryptedFile(). Panic-to-JS hook install proved idempotent.
+
+- Commit: `58add88` — pushed to `origin/main` on 2026-04-22.
+- Gates: cargo 81/81 · wasm-pack 11/11 · vitest 45/45 · typecheck 9/9 clean.
+- Full summary in inbox handoff `2026-04-22_dev-rehandoff-fs-iss-007-take4.md`.

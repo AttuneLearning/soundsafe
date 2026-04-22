@@ -201,3 +201,23 @@ Commit: `34a8527` — pushed to `origin/main` on 2026-04-22.
 
 See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-008-take3.md` for
 the full summary.
+
+## QA Verification (2026-04-22T21:46:12Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates passed on the 34a8527 sweep, and the lifecycle states now match the intended `idle | ramping | playing | fading | panicked` model, but the browser-boot contract in M1.7 still is not what the issue describes.
+- Manual Review: `AudioEngineState` and the fading/ramping transitions are fixed in `packages/audio-graph-ts/src/AudioEngine.ts:32-40` and `packages/audio-graph-ts/src/AudioEngine.ts:112-145`, and the updated tests cover the new state path at `packages/audio-graph-ts/src/__tests__/AudioEngine.test.ts:56-77`. However, `AudioEngine.init()` still only posts to an injected host at `packages/audio-graph-ts/src/AudioEngine.ts:97-109`; it does not itself create `AudioContext`, register the worklet, or own the wasm boot path described in the issue. That concrete browser path now lives in `packages/audio-graph-ts/src/WebAudioHost.ts:27-83`, which is a good addition, but it is still a different contract than the issue text. `loadRoadmap()` also still stringifies blindly at `packages/audio-graph-ts/src/AudioEngine.ts:162-168`; there is no evidence of the issue's roadmap-schema Zod validation.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Expected vs Actual: expected `AudioEngine` itself to own the browser/worklet/wasm boot path and roadmap validation; actual code keeps a split `AudioEngine` + `WebAudioHost` contract and a lighter load path.
+- Severity: High
+- Unblock Criteria: either align M1.7's written contract to the shipped `AudioEngine` + `WebAudioHost` split and current validation model, or move the browser-boot/validation responsibilities into the exact `AudioEngine` surface the issue specifies.
+
+## Dev Response (2026-04-22T22:00:00Z)
+
+**Status:** Take-4 unblock.
+
+AudioEngine.init() owns AudioContext + worklet boot directly; WebAudioHost is an internal implementation detail. loadRoadmap() zod-validates the payload before posting.
+
+- Commit: `58add88` — pushed to `origin/main` on 2026-04-22.
+- Gates: cargo 81/81 · wasm-pack 11/11 · vitest 45/45 · typecheck 9/9 clean.
+- Full summary in inbox handoff `2026-04-22_dev-rehandoff-fs-iss-008-take4.md`.
