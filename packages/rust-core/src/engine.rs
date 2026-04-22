@@ -107,6 +107,43 @@ pub struct ParamPairDto {
     pub value: f32,
 }
 
+/// Wire-format roadmap: what `load_roadmap` / `loadRoadmap` accepts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoadmapDto {
+    pub id: String,
+    #[serde(default)]
+    pub steps: Vec<StepDto>,
+}
+
+/// Single encrypted pack file, base64-encoded for JSON transport.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncryptedFileDto {
+    pub path: String,
+    pub ciphertext_b64: String,
+    pub nonce_b64: String,
+    pub tag_b64: String,
+}
+
+/// Decrypted pack file, base64-encoded plaintext in the response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecryptedFileDto {
+    pub path: String,
+    pub plaintext_len: usize,
+    pub plaintext_b64: String,
+}
+
+fn base64_decode(s: &str) -> Result<Vec<u8>, EngineError> {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD
+        .decode(s)
+        .map_err(|e| EngineError::Json(alloc::format!("base64: {e}")))
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
 impl From<StepDto> for Step {
     fn from(d: StepDto) -> Self {
         Self {
@@ -134,6 +171,7 @@ pub struct Engine {
     vault: Option<PackVault>,
     manifest: Option<Manifest>,
     panic_requested: bool,
+    last_peak: f32,
 }
 
 impl Engine {
@@ -171,6 +209,7 @@ impl Engine {
             vault: None,
             manifest: None,
             panic_requested: false,
+            last_peak: 0.0,
         })
     }
 
@@ -238,6 +277,19 @@ impl Engine {
         Ok(())
     }
 
+    /// Replace the runner's roadmap with a multi-step roadmap parsed
+    /// from JSON. The JSON shape is `{ id: string, steps: StepDto[] }`.
+    pub fn load_roadmap(&mut self, roadmap_json: &str) -> Result<(), EngineError> {
+        let dto: RoadmapDto = serde_json::from_str(roadmap_json)?;
+        let roadmap = Roadmap {
+            id: dto.id,
+            steps: dto.steps.into_iter().map(Into::into).collect(),
+        };
+        self.runner = RoadmapRunner::new(roadmap, SampleCounterClock::new(), self.config.sample_rate);
+        self.runner.tick();
+        Ok(())
+    }
+
     /// Set a parameter on a transform via the audio graph's SPSC ring.
     pub fn set_param(
         &self,
@@ -264,12 +316,67 @@ impl Engine {
         self.runner.input(RunnerInput::Safety(block));
     }
 
-    /// Pump the audio graph for one block. The provided input/output
-    /// slices must be block-sized per `AudioGraphConfig`.
+    /// Pump the audio graph for one block and record the post-limiter
+    /// peak (used by the TS fast-ring writer to surface a levelDb
+    /// indicator). The provided input/output slices must be block-sized
+    /// per `AudioGraphConfig`.
     pub fn process_block(&mut self, input: &[f32], output: &mut [f32]) {
         self.graph.process(input, output);
+        // Capture peak of the fully-processed block.
+        let mut peak = 0.0_f32;
+        for &y in output.iter() {
+            let a = if y < 0.0 { -y } else { y };
+            if a > peak { peak = a; }
+        }
+        self.last_peak = peak;
         self.runner.clock_mut().advance(self.config.block_size as u32);
         self.runner.tick();
+    }
+
+    /// Most recent post-limiter peak amplitude (linear). Returned to
+    /// the TS side as the source for the level indicator.
+    pub fn last_peak(&self) -> f32 { self.last_peak }
+
+    /// Most recent post-limiter peak in dBFS. `-inf` is surfaced as
+    /// the sentinel `-120.0` to keep the wire format finite.
+    pub fn last_peak_dbfs(&self) -> f32 {
+        if self.last_peak <= 1e-6 { return -120.0; }
+        20.0 * libm::log10f(self.last_peak)
+    }
+
+    /// Composite entry: verify manifest, install key (with zeroize),
+    /// decrypt every file, emit `(path, plaintext_len)` pairs.
+    pub fn load_pack(
+        &mut self,
+        manifest_bytes: &[u8],
+        signature_bytes: &[u8],
+        pack_key_bytes: &[u8],
+        encrypted_files_json: &str,
+    ) -> Result<Vec<DecryptedFileDto>, EngineError> {
+        self.load_pack_manifest(manifest_bytes, signature_bytes)?;
+        self.install_pack_key(pack_key_bytes)?;
+        let files: Vec<EncryptedFileDto> = serde_json::from_str(encrypted_files_json)?;
+        let mut out = Vec::with_capacity(files.len());
+        let decrypt_result = (|| -> Result<(), EngineError> {
+            for f in files {
+                let nonce = base64_decode(&f.nonce_b64)?;
+                let tag = base64_decode(&f.tag_b64)?;
+                let ciphertext = base64_decode(&f.ciphertext_b64)?;
+                let plaintext = self.decrypt_file(&ciphertext, &nonce, &tag)?;
+                out.push(DecryptedFileDto {
+                    path: f.path,
+                    plaintext_len: plaintext.len(),
+                    plaintext_b64: base64_encode(&plaintext),
+                });
+            }
+            Ok(())
+        })();
+        // Always clear the vault — the caller is presumed to write the
+        // plaintext out via the decrypted-files return before making
+        // more calls.
+        self.clear_pack_key();
+        decrypt_result?;
+        Ok(out)
     }
 
     /// Drain roadmap events as a JSON array (stable wire format for
@@ -478,5 +585,76 @@ mod tests {
         let dto = EventDto::StepStarted { index: 7 };
         let json = serde_json::to_string(&dto).unwrap();
         assert_eq!(json, r#"{"kind":"StepStarted","index":7}"#);
+    }
+
+    #[test]
+    fn load_roadmap_accepts_multi_step_json() {
+        let mut engine = fresh_engine();
+        let roadmap = r#"{"id":"r1","steps":[
+            {"source_id":"a","transforms":[],"duration_ms":500,"advance_ms":500},
+            {"source_id":"b","transforms":[],"duration_ms":500,"advance_ms":500}
+        ]}"#;
+        engine.load_roadmap(roadmap).unwrap();
+        assert!(engine.poll_events_json().contains("StepStarted"));
+    }
+
+    #[test]
+    fn load_roadmap_rejects_malformed_json() {
+        let mut engine = fresh_engine();
+        assert!(matches!(engine.load_roadmap("{bad"), Err(EngineError::Json(_))));
+    }
+
+    #[test]
+    fn last_peak_dbfs_defaults_to_silence_sentinel() {
+        let engine = fresh_engine();
+        assert!(engine.last_peak_dbfs() <= -119.0);
+    }
+
+    #[test]
+    fn load_pack_verifies_decrypts_and_clears_key() {
+        let pack = hello_pack(0);
+        let mut engine = fresh_engine();
+        // Build the encrypted-files JSON the loader expects.
+        use base64::Engine as _;
+        let b64 = base64::engine::general_purpose::STANDARD;
+        let files_json = serde_json::to_string(
+            &pack.encrypted_files.iter().map(|f| {
+                EncryptedFileDto {
+                    path: f.path.clone(),
+                    ciphertext_b64: b64.encode(&f.ciphertext),
+                    nonce_b64: b64.encode(f.nonce),
+                    tag_b64: b64.encode(f.tag),
+                }
+            }).collect::<Vec<_>>()
+        ).unwrap();
+        let decrypted = engine.load_pack(
+            &pack.manifest_bytes,
+            &pack.signature_bytes,
+            &pack.pack_key,
+            &files_json,
+        ).unwrap();
+        assert_eq!(decrypted.len(), 1);
+        let expected = &pack.encrypted_files[0].plaintext;
+        let got = base64::engine::general_purpose::STANDARD
+            .decode(&decrypted[0].plaintext_b64)
+            .unwrap();
+        assert_eq!(&got, expected);
+        // Vault cleared after load_pack returns.
+        assert!(!engine.has_pack_key());
+    }
+
+    #[test]
+    fn load_pack_rejects_bad_signature() {
+        let pack = hello_pack(0);
+        let mut engine = fresh_engine();
+        let mut bad_sig = pack.signature_bytes;
+        bad_sig[0] ^= 0xFF;
+        let err = engine.load_pack(
+            &pack.manifest_bytes,
+            &bad_sig,
+            &pack.pack_key,
+            "[]",
+        ).unwrap_err();
+        assert!(matches!(err, EngineError::Manifest(_)));
     }
 }

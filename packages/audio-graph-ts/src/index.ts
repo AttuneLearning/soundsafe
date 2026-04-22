@@ -35,4 +35,9 @@ export {
   KIND_RAMP_DONE,
 } from './fast-ring.js';
 export type { FastRingEvent } from './fast-ring.js';
-export { makePlayheadStore, useAudioEngineState, usePlayhead } from './react.js';
+export {
+  useAudioEngine,
+  useAudioEngineState,
+  useLevelDb,
+  usePlayhead,
+} from './react.js';

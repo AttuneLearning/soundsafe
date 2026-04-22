@@ -90,14 +90,21 @@ pub fn load_pack_manifest(
     })
 }
 
-/// Install the pack key. The caller MUST zero the source
-/// `Uint8Array` on the JS side immediately after this returns
-/// (ADR-010). Rust clones the bytes into `Zeroizing<[u8; 32]>` inside
-/// the vault; once the function returns WASM holds no reference to
-/// the JS-side buffer.
+/// Install the pack key from a JS-side `Uint8Array`. Per ADR-010,
+/// WASM copies the bytes into a `Zeroizing<[u8; 32]>` vault and then
+/// **immediately** calls `.fill(0)` on the JS-side buffer before
+/// returning. The key never sits on the JS heap past one microtask.
 #[wasm_bindgen(js_name = setPackKey)]
-pub fn set_pack_key(pack_key_bytes: &[u8]) -> Result<(), JsValue> {
-    with_engine(|engine| engine.install_pack_key(pack_key_bytes))
+pub fn set_pack_key(pack_key_bytes: &js_sys::Uint8Array) -> Result<(), JsValue> {
+    let bytes = pack_key_bytes.to_vec();
+    let result = with_engine(|engine| engine.install_pack_key(&bytes));
+    pack_key_bytes.fill(0, 0, pack_key_bytes.length());
+    // Zero the transient heap copy before drop (the vault's Zeroizing
+    // holds its own copy).
+    let mut scratch = bytes;
+    for b in scratch.iter_mut() { *b = 0; }
+    drop(scratch);
+    result
 }
 
 #[wasm_bindgen(js_name = clearPackKey)]
@@ -117,6 +124,45 @@ pub fn decrypt_file(
 #[wasm_bindgen(js_name = playStep)]
 pub fn play_step(step_json: &str) -> Result<(), JsValue> {
     with_engine(|engine| engine.play_step(step_json))
+}
+
+/// Load a multi-step roadmap from JSON.
+#[wasm_bindgen(js_name = loadRoadmap)]
+pub fn load_roadmap(roadmap_json: &str) -> Result<(), JsValue> {
+    with_engine(|engine| engine.load_roadmap(roadmap_json))
+}
+
+/// Composite pack loader matching the FS-ISS-007 spec entry point:
+/// verify manifest → install pack key (zeroized on return) → decrypt
+/// every file → return decrypted bytes (base64 in a JSON string the
+/// TS side parses). Issued from the decrypt worker.
+#[wasm_bindgen(js_name = loadPack)]
+pub fn load_pack(
+    manifest_bytes: &[u8],
+    signature_bytes: &[u8],
+    pack_key_bytes: &js_sys::Uint8Array,
+    encrypted_files_json: &str,
+) -> Result<String, JsValue> {
+    let bytes = pack_key_bytes.to_vec();
+    let result = with_engine(|engine| {
+        engine.load_pack(manifest_bytes, signature_bytes, &bytes, encrypted_files_json)
+    });
+    // ADR-010: zero the JS-side buffer immediately. The transient Rust
+    // copy and the vault's copy are Zeroize-dropped.
+    pack_key_bytes.fill(0, 0, pack_key_bytes.length());
+    let mut scratch = bytes;
+    for b in scratch.iter_mut() { *b = 0; }
+    drop(scratch);
+    let decrypted = result?;
+    serde_json::to_string(&decrypted)
+        .map_err(|e| JsValue::from_str(&alloc::format!("json encode: {e}")))
+}
+
+/// Most recent post-limiter peak in dBFS. Surfaces `-120.0` for
+/// effectively-silent output so the wire format stays finite.
+#[wasm_bindgen(js_name = lastPeakDbfs)]
+pub fn last_peak_dbfs() -> Result<f32, JsValue> {
+    with_engine_ref(|engine| Ok(engine.last_peak_dbfs()))
 }
 
 #[wasm_bindgen(js_name = setParam)]

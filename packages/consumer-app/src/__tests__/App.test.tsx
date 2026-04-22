@@ -90,8 +90,11 @@ describe('M1 demo wiring', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByTestId('m1-load'));
-      // loadRoadmapStep awaits the next 'ready' inbound OR a StepStarted event.
-      host.emitInbound({ kind: 'ready' });
+      // loadRoadmapStep awaits a StepStarted event.
+      host.emitInbound({
+        kind: 'events',
+        events: [{ kind: 'StepStarted', index: 0 }],
+      });
     });
 
     expect(play.disabled).toBe(false);

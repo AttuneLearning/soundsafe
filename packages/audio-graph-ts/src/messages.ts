@@ -14,6 +14,7 @@ export type OutboundMessage =
   | { kind: 'init'; sampleRate: number; blockSize: number; bundledPublicKey: Uint8Array }
   | { kind: 'setParam'; nodeId: number; paramId: number; value: number; smoothingMs: number }
   | { kind: 'playStep'; stepJson: string }
+  | { kind: 'loadRoadmap'; roadmapJson: string }
   | { kind: 'panicStop' }
   | { kind: 'pollEvents' }
   | { kind: 'close' };

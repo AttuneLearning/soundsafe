@@ -26,7 +26,14 @@ js-sys.workspace = true
 console_error_panic_hook.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+base64.workspace = true
+libm.workspace = true
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 sfx-test-fixtures = { path = "../../crates/sfx-test-fixtures" }
+
+# wasm32-unknown-unknown pulls in `getrandom` (via rand / ed25519-dalek);
+# its `js` feature routes randomness through `crypto.getRandomValues`.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }

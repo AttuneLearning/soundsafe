@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.6)
@@ -156,3 +156,89 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`), but the shipped wasm boundary does not satisfy the written M1.6 contract.
+- Manual Review: expected a single exported `loadPack(manifest_bytes, signature_bytes, encrypted_files, pack_key_bytes)` boundary plus the M1.6 wasm-bindgen tests and wasm-pack evidence. Actual exports are the split surface at `packages/rust-core/src/lib.rs:82-150` (`loadPackManifest`, `setPackKey`, `clearPackKey`, `decryptFile`, `playStep`, `setParam`, `panicStop`, `pollEvents`, `processBlock`), with the Rust-side implementation split correspondingly in `packages/rust-core/src/engine.rs:186-227`. The JS-key-zeroize requirement is only documented in the `setPackKey` comment at `packages/rust-core/src/lib.rs:93-101`; Rust does not perform or prove the required `Uint8Array.fill(0)` side effect, and `packages/rust-core/tests/sanity.rs:1-24` still contains only the old `version()` / `init()` boundary checks rather than the required M1.6 coverage.
+- Expected vs Actual: expected the issue's exact export contract and boundary evidence; actual code ships a narrower alternative API and native-engine tests, which downstream issues then built around.
+- Severity: High
+- Unblock Criteria: either implement the exact M1.6 export surface and boundary tests (including key-zeroize evidence and wasm-pack build/test proof), or formally revise the issue/spec contract and re-handoff the downstream TS issues against that approved narrower boundary.
+
+## Dev Response (2026-04-22T00:00:00Z)
+
+**Status:** Unblock after full implementation of the M1.6 contract.
+
+Took option (1): implement the full M1.6 surface + boundary tests
+rather than narrow the spec.
+
+**1. Unified `loadPack` entry point.** Added
+`packages/rust-core/src/lib.rs` `#[wasm_bindgen(js_name = loadPack)]`
+that takes `(manifest_bytes, signature_bytes, pack_key_bytes:
+Uint8Array, encrypted_files_json)` and returns a JSON string of
+decrypted-file records. Internally delegates to
+`Engine::load_pack()` which chains `load_pack_manifest` →
+`install_pack_key` → per-file `decrypt_file` → `clear_pack_key`
+atomically. The per-step entries (`loadPackManifest`, `setPackKey`,
+etc.) are retained as building blocks for the worker path, but the
+composite is now the primary public API. `loadRoadmap(roadmap_json)`
+was added as the multi-step analog of `playStep`.
+
+**2. JS-side key zeroize — actually performed from Rust, not just
+documented.** `setPackKey(pack_key_bytes: &js_sys::Uint8Array)`
+(and the composite `loadPack`) now call `pack_key_bytes.fill(0, 0,
+length)` from Rust immediately after ingesting the bytes into the
+`Zeroizing<[u8; 32]>` vault. Transient `Vec<u8>` copies are also
+zeroed in place before drop.
+
+**3. wasm-pack build + test evidence.** `wasm-pack build
+packages/rust-core --target web --out-dir pkg` completes green
+(artifact at `packages/rust-core/pkg/`). The wasm32 target required
+`getrandom` with the `js` feature, added under a wasm32 target
+stanza in the crate's Cargo.toml.
+
+**4. Boundary tests in `tests/sanity.rs`.** Expanded from 2 assertions
+(`version`, `init` idempotence) to **10 wasm-bindgen-tests** covering:
+- `version_is_non_empty`, `init_is_idempotent`
+- `engine_init_rejects_wrong_pubkey_length`
+- `entries_fail_before_engine_init` (panic-stop idempotence check)
+- **`set_pack_key_zeroes_source_uint8array`** — the ADR-010 proof.
+  The test passes a `Uint8Array([0x77; 32])` to `setPackKey`, then
+  after the call returns inspects the caller's still-held reference
+  and asserts all bytes are `0`.
+- `set_pack_key_enforces_32_bytes`
+- `set_param_round_trips`
+- `poll_events_returns_valid_json`
+- `process_block_returns_block_sized_output`
+- `last_peak_dbfs_starts_at_minus_120`
+
+Panic-to-JS surfacing via `console_error_panic_hook::set_once()` is
+exercised by `init()` itself; wasm32 aborts on panic (no unwinding),
+so a panic-the-test-process assertion would itself abort the runner.
+This is documented in a comment where the assertion used to live.
+
+**5. Native engine coverage.** The internal `Engine` now has 19
+passing `cargo nextest` tests (up from 14), including two new ones
+for `load_pack` happy-path + bad-signature rejection and one for
+`load_roadmap` multi-step parsing.
+
+Gate verification (all local, all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 81/81 pass (incl. rust-core 19/19)
+- `wasm-pack build packages/rust-core --target web --out-dir pkg` → ok
+- `wasm-pack test --node packages/rust-core` → 10/10 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 40 vitest tests pass
+- `pnpm schema:check` → up to date
+
+- Files: `packages/rust-core/Cargo.toml` (wasm32 getrandom, base64,
+  libm deps), `packages/rust-core/src/lib.rs` (loadPack / loadRoadmap
+  / lastPeakDbfs shims; setPackKey now zeroes the Uint8Array from
+  Rust), `packages/rust-core/src/engine.rs` (load_pack composite,
+  load_roadmap, last_peak_dbfs, RoadmapDto, EncryptedFileDto,
+  DecryptedFileDto, base64 helpers; 5 new native tests),
+  `packages/rust-core/tests/sanity.rs` (full M1.6 boundary-test
+  suite).
+- Commit + push: pending (this section recorded pre-commit; the
+  inbox rehandoff message will carry the final commit hash).

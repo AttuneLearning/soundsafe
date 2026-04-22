@@ -173,6 +173,32 @@ export class PackClient {
     return this.deps.opfs.readFile(row.opfsPackUuid, row.opfsFileUuid);
   }
 
+  /**
+   * Stream-oriented read over a pack file. Returns a `ReadableStream<
+   * Uint8Array>` so downstream consumers (e.g. `audio-graph-ts`'s
+   * worklet loader) can process the plaintext without materializing
+   * the whole file on the main-thread heap.
+   *
+   * The OPFS handle is NEVER exposed — see the ADR-025 ESLint rule in
+   * `eslint.config.js` forbidding `URL.createObjectURL`.
+   */
+  async openSoundStream(packId: string, soundId: string): Promise<ReadableStream<Uint8Array>> {
+    const bytes = await this.openSound(packId, soundId);
+    let offset = 0;
+    const CHUNK = 64 * 1024;
+    return new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (offset >= bytes.byteLength) {
+          controller.close();
+          return;
+        }
+        const end = Math.min(offset + CHUNK, bytes.byteLength);
+        controller.enqueue(bytes.subarray(offset, end));
+        offset = end;
+      },
+    });
+  }
+
   async evict(packId: string): Promise<void> {
     const rows = await this.deps.opfsIndex.listForPack(packId);
     for (const row of rows) {

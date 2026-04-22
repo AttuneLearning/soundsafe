@@ -73,6 +73,9 @@ export class AudioEngine {
   private readonly paramTable: ReadonlyArray<ParamSpec>;
   private readonly fastRingReader: ReturnType<typeof createFastRingReader>;
   private unsubscribeInbound: Unsubscribe | null = null;
+  private samples = 0;
+  private levelDb = -120;
+  private sampleRate = 48_000;
 
   constructor(host: AudioEngineHost, paramTable = DEFAULT_PARAM_TABLE) {
     this.host = host;
@@ -86,6 +89,7 @@ export class AudioEngine {
 
   /** Boot the worklet; resolves when the worklet posts `{kind:'ready'}`. */
   async init(config: AudioEngineConfig): Promise<void> {
+    this.sampleRate = config.sampleRate;
     this.transition('initializing');
     const ready = this.once('ready');
     this.host.postToWorklet({
@@ -113,10 +117,53 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Post a single-step roadmap (legacy entry point used by the M1
+   * demo scaffold). Resolves on the next `StepStarted` event.
+   */
   async loadRoadmapStep(stepJson: string): Promise<void> {
-    const started = this.once('ready', 'StepStarted' as unknown as 'ready'); // see helper below
+    const started = this.once('StepStarted');
     this.host.postToWorklet({ kind: 'playStep', stepJson });
     await started;
+  }
+
+  /**
+   * Load a multi-step roadmap. `roadmap` is either a JSON string or
+   * the parsed object; the object form is stringified here so the
+   * wire format stays consistent.
+   */
+  async loadRoadmap(
+    roadmap: string | { id: string; steps: ReadonlyArray<unknown> },
+  ): Promise<void> {
+    const json = typeof roadmap === 'string' ? roadmap : JSON.stringify(roadmap);
+    const started = this.once('StepStarted');
+    this.host.postToWorklet({ kind: 'loadRoadmap', roadmapJson: json });
+    await started;
+  }
+
+  /** Most recent playhead reading (seconds), sourced from the fast-
+   *  ring `playhead` record stream. */
+  readPlayhead(): number {
+    // Poll any pending records and cache the most-recent sample count.
+    this.drainFastRing();
+    return this.samples / this.sampleRate;
+  }
+
+  /** Most recent post-limiter peak in dBFS; silence is reported as
+   *  `-120.0` so UIs don't render `-Infinity`. */
+  readLevelDb(): number {
+    this.drainFastRing();
+    return this.levelDb;
+  }
+
+  private drainFastRing(): void {
+    for (const ev of this.fastRingReader.poll()) {
+      if (ev.kind === 'playhead') {
+        this.samples = ev.samples;
+      } else if (ev.kind === 'levelDb') {
+        this.levelDb = ev.dbfsTimes100 / 100;
+      }
+    }
   }
 
   /**

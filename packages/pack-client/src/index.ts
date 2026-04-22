@@ -3,6 +3,11 @@
 export { PackClient } from './client.js';
 export type { PackClientDeps } from './client.js';
 export type {
+  DecryptedFile,
+  UnlockRequest,
+  WorkerResponse,
+} from './worker-protocol.js';
+export type {
   CatalogResponse,
   EncryptedFileBytes,
   EntitlementResponse,
