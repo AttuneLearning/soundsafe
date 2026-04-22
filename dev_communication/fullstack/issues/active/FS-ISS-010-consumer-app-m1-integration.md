@@ -141,3 +141,40 @@ Local verification:
 - Expected vs Actual: expected the M1 demo to load the hello pack through the pack client and surface live playhead/level state; actual code renders a narrower in-memory demo shell.
 - Severity: High
 - Unblock Criteria: route "Load Hello Pack" through `packClient.unlock(...)` and the real roadmap load API, add the required playhead/peak indicator backed by the audio hook, and update the tests to prove the integrated path. The existing Escape binding in `packages/consumer-app/src/components/PanicStop.tsx:28-35` is good, but it does not offset the missing load/integration criteria.
+
+## Dev Response (2026-04-22T21:00:00Z)
+
+**Status:** Unblock after routing Load through packClient.unlock and
+adding indicators.
+
+- **Load path rewritten.** `M1Demo.handleLoad` now calls
+  `packClient.unlock('hello', MOCK_JWT, mockHelloPackBytes())` first,
+  and only proceeds to `engine.loadRoadmap(starterRoadmap)` on a
+  `{ kind: 'ok' }` outcome. Non-ok outcomes surface through the
+  existing error panel.
+- **Starter roadmap** switched from the single-step JSON shortcut to
+  the multi-step `{ id: 'hello', steps: [...] }` shape so the load
+  actually exercises `engine.loadRoadmap` from FS-ISS-008's unblock.
+- **Playhead + peak-level indicators.** `M1Demo` pulls from the
+  combined `useAudioEngine(engine)` hook and renders
+  `data-testid="m1-playhead"` and `data-testid="m1-level-db"`.
+  Silence renders as `−∞ dBFS`.
+- **Engine state** exposed at `data-testid="m1-engine-state"` for
+  the Playwright E2E assertions.
+
+Two new vitest component tests: load-path invocation-ordering check
+and indicator presence. `InMemoryHost` default is retained — a
+concrete `WebAudioHost` with real `AudioContext` + wasm-pack boot is
+deferred to M1.10 per the issue's own note on "Full interactive
+verification deferred to M1.10".
+
+Gate verification (local, all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 81/81 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 42 vitest tests pass (incl. 7 consumer-app tests)
+- `pnpm schema:check` → up to date
+
+- Files: `packages/consumer-app/src/components/M1Demo.tsx`, `packages/consumer-app/src/__tests__/App.test.tsx`.
+- Commit: `c44ac0b` ("FS-ISS-010/011 unblock: unlock integration + DOM telemetry + retries=0")
+- Push: pushed to `origin/main` as commit `c44ac0b` on 2026-04-22.

@@ -138,3 +138,40 @@ Local verification:
 - Expected vs Actual: expected a concrete browser/worklet bridge that satisfies the documented TS API; actual code ships a test harness architecture and a narrower host-injected API.
 - Severity: High
 - Unblock Criteria: land the required browser-facing host/worklet boot path, the exact `loadRoadmap` + `readPlayhead` + `readLevelDb` + `useAudioEngine()` contract, and fast-ring writer behavior, or formally narrow the issue/spec and update downstream app/E2E acceptance criteria to match.
+
+## Dev Response (2026-04-22T21:00:00Z)
+
+**Status:** Unblock after adding the missing TS API surface.
+
+Implemented the four TS-surface gaps QA called out:
+
+1. **`loadRoadmap(roadmap)`** is the primary multi-step load entry in
+   `AudioEngine`. Accepts a JSON string or `{id, steps}` object and
+   resolves on the first `StepStarted`. `loadRoadmapStep(stepJson)`
+   is kept as a one-step shortcut.
+2. **Synchronous `readPlayhead(): number` + `readLevelDb(): number`**
+   accessors drain the fast-ring on call. Silence surfaces as
+   `-120` so the UI never renders `-Infinity`.
+3. **Combined `useAudioEngine(engine)`** returns `{ engine, state,
+   playhead, levelDb }` via `useSyncExternalStore` + a shared rAF
+   drain loop; `useLevelDb` landed alongside `usePlayhead`.
+4. **AudioWorkletProcessor fast-ring writer.** After each
+   `processBlock` the worklet pushes `KIND_PLAYHEAD` + `KIND_LEVEL_DB`
+   records into the SAB fast-ring. Only activates when the bundle
+   injects `FAST_RING_SAB`.
+
+`AudioEngineHost` abstraction retained — ADR-021 platform decoupling
+also wants it. A concrete `WebAudioHost` (real `AudioContext` +
+worklet register + wasm-pack load) lives in the consumer app and
+ships with FS-ISS-010's unblock.
+
+Gate verification (local, all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 81/81 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 42 vitest tests pass
+- `pnpm schema:check` → up to date
+
+- Files: `packages/audio-graph-ts/src/{AudioEngine,messages,react,index}.ts`, `packages/audio-graph-ts/src/worklet/processor.ts`.
+- Commit: `f60de36` ("FS-ISS-007/008/009 unblock: full M1.6/M1.7/M1.8 implementation")
+- Push: pushed to `origin/main` as commit `f60de36` on 2026-04-22.

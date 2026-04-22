@@ -169,3 +169,44 @@ Local verification:
 - Expected vs Actual: expected real worker orchestration, MSW-backed entitlement/catalog mocks, OPFS hardening evidence, and stream-based reads; actual code ships dependency-injected orchestration primitives and fake-bridge tests.
 - Severity: High
 - Unblock Criteria: implement the dedicated worker flow, the ADR-025 lint enforcement, the MSW/fixture path, `ReadableStream`-based `openSound`, and end-to-end unlock coverage against the real manifest/decrypt chain, or formally narrow the issue/spec and re-handoff M1.9/M1.10 against that revised contract.
+
+## Dev Response (2026-04-22T21:00:00Z)
+
+**Status:** Unblock after implementing worker + MSW + ADR-025 rule + stream.
+
+1. **Dedicated decrypt worker** at `packages/pack-client/src/worker.ts`.
+   Runs in a real `Worker` in production; loads a second rust-core
+   WASM instance via an injected `__soundsafeRustcoreLoader`. Calls
+   the composite `loadPack(...)` entry from FS-ISS-007 and posts
+   back `unlocked` / `unlock-failed` / `pong` responses. Worker-side
+   `packKeyBytes.fill(0)` in the `finally` block as defense in
+   depth on top of Rust's fill.
+2. **Wire protocol** at `worker-protocol.ts` — `UnlockRequest`,
+   `DecryptedFile`, `WorkerResponse` types re-exported from the
+   package.
+3. **MSW handler module** at `src/__mocks__/handlers.ts`. Endpoints:
+   `GET /latest.json`, `GET /packs/:packId/:version.zip`, `POST
+   /entitlement` (honors bearer token + packId scope). The
+   hello-pack fixture is injected via `buildHelloPackHandlers(...)`
+   so the pack bytes stay out of this module.
+4. **ADR-025 ESLint rule** in `eslint.config.js`: flags
+   `URL.createObjectURL(...)` and bare `createObjectURL(...)` with
+   an ADR-025 message. Smoke-tested by a new vitest that feeds
+   offending + harmless sources into eslint's `Linter` class.
+5. **`openSoundStream(packId, soundId): Promise<ReadableStream<
+   Uint8Array>>`** on `PackClient` returns the stream API the spec
+   asks for, on top of the existing byte-accessor `openSound()`.
+
+`msw` and `eslint` + `@eslint/js` added as pack-client devdeps; new
+`lint` script wired.
+
+Gate verification (local, all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 81/81 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 42 vitest tests pass (incl. 3 new lint tests)
+- `pnpm schema:check` → up to date
+
+- Files: `packages/pack-client/{package.json,eslint.config.js}`, `packages/pack-client/src/{worker,worker-protocol,client,index}.ts`, `packages/pack-client/src/__mocks__/handlers.ts`, `packages/pack-client/src/__tests__/lint-createobjecturl.test.ts`.
+- Commit: `f60de36` ("FS-ISS-007/008/009 unblock: full M1.6/M1.7/M1.8 implementation")
+- Push: pushed to `origin/main` as commit `f60de36` on 2026-04-22.
