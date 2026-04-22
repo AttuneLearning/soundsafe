@@ -197,5 +197,7 @@ Gate verification (local, all green):
 
 **Status:** Take-2 unblock.
 
+Commit: `34a8527` — pushed to `origin/main` on 2026-04-22.
+
 See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-008-take3.md` for
 the full summary.

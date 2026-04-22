@@ -40,4 +40,5 @@
 - `pnpm test` → 44 vitest tests pass
 - `wasm-pack build packages/rust-core --target web --out-dir pkg` → ok
   (pkg present; consumer app resolves the dynamic import at bundle time)
-- Commit: (pending; bundled)
+- Commit: `34a8527` ("Take-3 unblock: FS-ISS-007/008/009/010/011 contract-match")
+- Push: pushed to `origin/main` as commit `34a8527` on 2026-04-22.

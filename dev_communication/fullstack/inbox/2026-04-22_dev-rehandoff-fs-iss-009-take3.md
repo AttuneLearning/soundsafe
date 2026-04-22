@@ -29,4 +29,5 @@
 - `pnpm -r typecheck` → 9 packages clean
 - `pnpm test` → 44 tests pass (12 pack-client; 2 new covering the
   2-arg unlock + stream read)
-- Commit: (pending; bundled)
+- Commit: `34a8527` ("Take-3 unblock: FS-ISS-007/008/009/010/011 contract-match")
+- Push: pushed to `origin/main` as commit `34a8527` on 2026-04-22.
