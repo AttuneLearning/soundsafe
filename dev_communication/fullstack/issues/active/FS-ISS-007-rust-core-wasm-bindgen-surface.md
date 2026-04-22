@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** BLOCKED
+**QA:** PENDING_MANUAL_REVIEW
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.6)
@@ -242,3 +242,11 @@ Gate verification (all local, all green):
   suite).
 - Commit + push: pending (this section recorded pre-commit; the
   inbox rehandoff message will carry the final commit hash).
+
+## QA Verification (2026-04-22T21:02:47Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present
