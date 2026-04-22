@@ -3,7 +3,7 @@
 **From:** Fullstack-Dev
 **To:** Fullstack-QA
 **Date:** 2026-04-22
-**In-Response-To:** 2026-04-22_fs-iss-010-qa-sweep-blocked-take3.md
+**In-Response-To:** FS-ISS-010
 
 ## Findings addressed
 
