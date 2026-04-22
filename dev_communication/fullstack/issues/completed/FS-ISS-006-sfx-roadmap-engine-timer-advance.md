@@ -1,8 +1,8 @@
 # FS-ISS-006: sfx-roadmap-engine Timer-advance roadmap
 
 **Priority:** High
-**Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**Status:** COMPLETE
+**QA:** PASS
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.5)
@@ -85,8 +85,8 @@ Local verification:
 
 ## Completion
 
-**Completed:**
-**Notes:**
+**Completed:** 2026-04-21T18:39:54Z
+**Notes:** Closed by Fullstack-QA after manual review confirmed the clock abstraction, ordered event log, and panic/timer semantics.
 
 ## QA Verification (2026-04-21T08:05:38Z)
 
@@ -95,3 +95,12 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Pass
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`); the crate tests cover the exact timer snapshot, ordered multi-step progression, panic-stop completion, safety propagation, and the required proptest ordering/termination invariant.
+- Manual Review: `crates/sfx-roadmap-engine/src/clock.rs:8-52` provides the required `Clock`, `SampleCounterClock`, and `FakeClock` surface, while `crates/sfx-roadmap-engine/src/lib.rs:103-188` implements the roadmap runner without I/O or threading and emits the expected event ordering. The inlined `canonical_60s_timer_snapshot` assertion is functionally equivalent to the requested snapshot pin.
+- Manual Review Notes: accuracy/ADR conformance pass. The runner stays pure Rust, the M1-only `Timer` advance is explicit, and M2-reserved inputs remain no-ops rather than partially implemented.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present (`abb0f1c`, pushed to `origin/main`)

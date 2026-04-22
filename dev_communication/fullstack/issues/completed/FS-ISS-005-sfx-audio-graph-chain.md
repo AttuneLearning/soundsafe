@@ -1,8 +1,8 @@
 # FS-ISS-005: sfx-audio-graph chain + lock-free param ring
 
 **Priority:** High
-**Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**Status:** COMPLETE
+**QA:** PASS
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.4)
@@ -99,8 +99,8 @@ Local verification:
 
 ## Completion
 
-**Completed:**
-**Notes:**
+**Completed:** 2026-04-21T18:39:54Z
+**Notes:** Closed by Fullstack-QA after manual review confirmed the required processing order, safety-rail enforcement, and ring semantics.
 
 ## QA Verification (2026-04-21T07:57:27Z)
 
@@ -109,3 +109,12 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Pass
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`); the crate tests cover chain identity, limiter behavior, ramp monotonicity, ring capacity/drain semantics, unknown-node tolerance, and alloc-free execution.
+- Manual Review: `crates/sfx-audio-graph/src/lib.rs:97-118` makes `SafetyRails` a required constructor input with no disable path, and `crates/sfx-audio-graph/src/lib.rs:145-200` implements the required order: drain ring → run transform chain → apply ramp envelope → apply ceiling limiter. The scratch buffer is preallocated in `new()`, and `enqueue_param` / `RingFull` align with the SPSC contract.
+- Manual Review Notes: accuracy/efficiency/ADR conformance pass. The implementation honors ADR-015, ADR-016, and ADR-020 as documented in the module header and does not duplicate transform-level smoothing logic.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present (`7ec3fd3`, pushed to `origin/main`)

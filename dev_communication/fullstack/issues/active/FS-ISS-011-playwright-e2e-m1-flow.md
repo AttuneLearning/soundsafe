@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.10)
@@ -133,3 +133,20 @@ Local verification (what this dev session could run):
 
 **Completed:**
 **Notes:**
+
+## QA Verification (2026-04-21T09:06:14Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`), but the E2E layer does not yet satisfy the written M1.10 exit criteria.
+- Manual Review: `packages/consumer-app/e2e/m1-flow.spec.ts:11-60` asserts only visible DOM affordances (`m1-load`, `m1-play`, `m1-grounding`, disclaimer persistence, pause button enabled, axe smoke). It does not assert the required `engine.state` transitions or `levelDb` ramp behavior, and the shim at `packages/consumer-app/e2e/fixtures/shim.ts:46-70` only acknowledges `init`; it does not simulate the richer play/panic telemetry the spec calls for. CI wiring also misses the no-retries requirement: `packages/consumer-app/playwright.config.ts:16` sets `retries: process.env.CI ? 1 : 0`, while the issue requires a fresh-runner pass with no retries. Finally, the Dev Response explicitly states the first real CI run is still pending, so the acceptance criterion "When this test passes in CI, M1 is dev-complete" has not been met.
+- Expected vs Actual: expected state/level assertions and a first green CI e2e run with no retries; actual code ships DOM-smoke coverage plus scaffolding for a future CI confirmation.
+- Severity: High
+- Unblock Criteria: either expose/assert the required engine-state and level telemetry in the E2E flow and set CI retries to 0, then attach the first green CI run evidence, or formally narrow the issue/spec before using this issue to close M1.

@@ -1,8 +1,8 @@
 # FS-ISS-004: sfx-dsp Gain envelope transform
 
 **Priority:** High
-**Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**Status:** COMPLETE
+**QA:** PASS
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.3)
@@ -105,8 +105,8 @@ Per ADR-016, transforms are sample-accurate and allocation-free in the audio cal
 
 ## Completion
 
-**Completed:**
-**Notes:**
+**Completed:** 2026-04-21T18:39:54Z
+**Notes:** Closed by Fullstack-QA after manual review confirmed the Transform ABI, gain smoother behavior, and alloc-free DSP hot path.
 
 ## Dev Response (2026-04-21T07:45:00Z)
 
@@ -148,3 +148,12 @@ Local gate verification (all green):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Pass
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`); the 13-test Rust suite covers the required invariants and allocation guarantees.
+- Manual Review: `crates/sfx-dsp/src/transform.rs:22-42` defines the stable minimal Transform ABI required by ADR-016, and `crates/sfx-dsp/src/transforms/gain.rs:22-159` implements the gain node with bounded params, sample-accurate smoothing, overshoot clamp, stable param IDs, and no callback allocation. The tests at `crates/sfx-dsp/src/transforms/gain.rs:179-250` and the proptests further down in the file map cleanly to the acceptance criteria.
+- Manual Review Notes: accuracy/efficiency/ADR conformance pass. The smoothing math is coherent, non-finite attenuation values collapse safely to 0 dB, and the stable ABI (`BYPASS`, `ATTENUATION_DB`, `SMOOTHING_MS`, `id() == "gain"`) is explicit.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present (`105cc45`, pushed to `origin/main`)

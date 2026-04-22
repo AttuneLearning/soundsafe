@@ -1,8 +1,8 @@
 # FS-ISS-003: sfx-pack-vault AES-256-GCM decryption + key zeroize
 
 **Priority:** High
-**Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**Status:** COMPLETE
+**QA:** PASS
 **Created:** 2026-04-20
 **Started:** 2026-04-20
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.2)
@@ -99,8 +99,8 @@ in std anyway).
 
 ## Completion
 
-**Completed:**
-**Notes:**
+**Completed:** 2026-04-21T18:39:54Z
+**Notes:** Closed by Fullstack-QA after refreshed automated gates and manual review confirmed ADR-010 key handling and decrypt failure semantics.
 
 ## QA Verification (2026-04-21T06:21:59Z)
 
@@ -230,3 +230,12 @@ compliance) is unchanged from commit `b184bab`.
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Pass
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`); test coverage fully maps to the acceptance criteria, including round-trip decrypt, tamper/wrong-key/wrong-nonce failure, length validation, undersized buffers, and drop smoke.
+- Manual Review: `crates/sfx-pack-vault/src/lib.rs:65-76` stores the key in `Zeroizing<[u8; 32]>`, and `crates/sfx-pack-vault/src/lib.rs:90-134` keeps the hot path allocation-free while zeroing `out_buf[..ciphertext.len()]` on tag failure. The implementation matches ADR-010's "verify before committing plaintext" rule and does not leak partial plaintext on auth failure.
+- Manual Review Notes: accuracy/security/ADR conformance pass. `decrypt_into` validates lengths before touching buffers, uses `decrypt_in_place_detached` correctly, and constrains zeroization to the ciphertext-length range as documented.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present (initial implementation `b184bab`; refreshed re-handoff evidence `105cc45`, pushed to `origin/main`)

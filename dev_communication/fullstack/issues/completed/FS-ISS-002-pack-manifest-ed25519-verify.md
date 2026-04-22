@@ -1,8 +1,8 @@
 # FS-ISS-002: sfx-pack-manifest Ed25519 verification
 
 **Priority:** High
-**Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**Status:** COMPLETE
+**QA:** PASS
 **Created:** 2026-04-20
 **Started:** 2026-04-20
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.1)
@@ -91,8 +91,8 @@ features. Documented in the handoff and in the commit message.
 
 ## Completion
 
-**Completed:**
-**Notes:**
+**Completed:** 2026-04-21T18:39:54Z
+**Notes:** Closed by Fullstack-QA after refreshed automated gates and manual review confirmed the weak-key contract fix.
 
 ## QA Verification (2026-04-21T06:21:59Z)
 
@@ -233,3 +233,12 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Pass
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`); acceptance coverage is complete via `verify_and_parse_tests` plus the existing manifest round-trip tests.
+- Manual Review: `crates/sfx-pack-manifest/src/lib.rs:149-177` now matches the required verify order exactly (public-key parse → weak-key rejection → signature parse → signature verify → JSON parse). The all-zero / low-order key contract drift is fixed by the explicit `verifying_key.is_weak()` guard at `crates/sfx-pack-manifest/src/lib.rs:160-164`, and the regression test restored the strict `BadPublicKeyFormat` assertion.
+- Manual Review Notes: accuracy/security/ADR conformance pass. No partial-parse path exists before signature verification, failure cases stay typed, and the change remains additive to the crate surface.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present (`54df0a9`, `a90eaec`, `0932d29`, and the contract-fix commit `005cb82`, all pushed to `origin/main`)

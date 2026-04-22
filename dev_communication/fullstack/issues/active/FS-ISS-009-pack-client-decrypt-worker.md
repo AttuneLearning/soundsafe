@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.8)
@@ -160,3 +160,12 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`), but the implementation is the narrowed orchestration layer rather than the worker/MSW/OPFS-hardening deliverable described in M1.8.
+- Manual Review: `packages/pack-client/src/client.ts:88-174` requires caller-supplied `packBytes`, returns `UnlockOutcome`, and exposes `openSound()` as `Promise<Uint8Array>` instead of the required `ReadableStream`. There is no dedicated decrypt worker file (`packages/pack-client/src/worker.ts` is absent), no MSW handler module, and no ADR-025 lint rule / lint test. The tests at `packages/pack-client/src/__tests__/client.test.ts:102-201` exercise fake `RustcoreBridge` and in-memory stores rather than the required end-to-end worker + WASM + fixture path.
+- Expected vs Actual: expected real worker orchestration, MSW-backed entitlement/catalog mocks, OPFS hardening evidence, and stream-based reads; actual code ships dependency-injected orchestration primitives and fake-bridge tests.
+- Severity: High
+- Unblock Criteria: implement the dedicated worker flow, the ADR-025 lint enforcement, the MSW/fixture path, `ReadableStream`-based `openSound`, and end-to-end unlock coverage against the real manifest/decrypt chain, or formally narrow the issue/spec and re-handoff M1.9/M1.10 against that revised contract.

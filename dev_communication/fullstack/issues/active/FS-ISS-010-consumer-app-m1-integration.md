@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.9)
@@ -132,3 +132,12 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`), but the M1 demo flow still misses several written acceptance criteria.
+- Manual Review: the load action in `packages/consumer-app/src/components/M1Demo.tsx:42-47` calls `engine.loadRoadmapStep(STARTER_STEP_JSON)` directly; it does not call `packClient.unlock('hello', mockJwt)` and then `engine.loadRoadmap(starterRoadmap)` as required. The demo view in `packages/consumer-app/src/components/M1Demo.tsx:65-119` renders state text and buttons only; there is no playhead readout or peak-level indicator. The default service factory in `packages/consumer-app/src/App.tsx:25-41` still wires `AudioEngine` to `InMemoryHost` and a noop `RustcoreBridge`, so the app is not exercising the promised pack/unlock/audio stack end-to-end. The test file `packages/consumer-app/src/__tests__/App.test.tsx:72-143` covers disclaimer gating, play enablement, panic click, and grounding, but it does not verify the required load-through-pack-client path.
+- Expected vs Actual: expected the M1 demo to load the hello pack through the pack client and surface live playhead/level state; actual code renders a narrower in-memory demo shell.
+- Severity: High
+- Unblock Criteria: route "Load Hello Pack" through `packClient.unlock(...)` and the real roadmap load API, add the required playhead/peak indicator backed by the audio hook, and update the tests to prove the integrated path. The existing Escape binding in `packages/consumer-app/src/components/PanicStop.tsx:28-35` is good, but it does not offset the missing load/integration criteria.

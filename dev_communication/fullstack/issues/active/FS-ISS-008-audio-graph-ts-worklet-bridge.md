@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.7)
@@ -129,3 +129,12 @@ Local verification:
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-21T18:39:54Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: refreshed gates on the current tree passed (`cargo check --workspace`, `pnpm -r typecheck`, `cargo nextest run --workspace`, `pnpm test`, `pnpm schema:check`), but the implementation stops short of the M1.7 surface the issue requires.
+- Manual Review: the issue requires `AudioEngine.init()` to create a real `AudioContext`, register the worklet, load the wasm-pack web target, and expose `loadRoadmap`, `readPlayhead`, `readLevelDb`, and a combined `useAudioEngine()` hook. Actual code uses an injected host abstraction in `packages/audio-graph-ts/src/AudioEngine.ts:46-100`; there is no `WebAudioHost`, `init()` only posts an `init` message to that host, the public load method is `loadRoadmapStep()` at `packages/audio-graph-ts/src/AudioEngine.ts:116-120`, and the class exposes `pollFastRing()` instead of the required synchronous `readPlayhead()` / `readLevelDb()` accessors. On the React side, `packages/audio-graph-ts/src/react.ts:11-52` exports only `useAudioEngineState`, `makePlayheadStore`, and `usePlayhead`; there is no level-dB store or combined hook result. The worklet skeleton at `packages/audio-graph-ts/src/worklet/processor.ts:90-126` posts slow-channel events but does not write the required 16-byte fast-ring records into the SAB.
+- Expected vs Actual: expected a concrete browser/worklet bridge that satisfies the documented TS API; actual code ships a test harness architecture and a narrower host-injected API.
+- Severity: High
+- Unblock Criteria: land the required browser-facing host/worklet boot path, the exact `loadRoadmap` + `readPlayhead` + `readLevelDb` + `useAudioEngine()` contract, and fast-ring writer behavior, or formally narrow the issue/spec and update downstream app/E2E acceptance criteria to match.
