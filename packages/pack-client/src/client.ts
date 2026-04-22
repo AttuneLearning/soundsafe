@@ -1,17 +1,24 @@
 // Main-thread pack client. Orchestrates:
 //   1. Catalog fetch (`/latest.json`).
-//   2. Pack zip download (Cache API).
+//   2. Pack bundle download (Cache API).
 //   3. Entitlement exchange (`/entitlement`) — one-microtask key on heap.
-//   4. Decrypt-worker handoff (manifest + key + encrypted files).
+//   4. Decrypt via rustcore bridge (worker in production).
 //   5. OPFS write under v4-UUID names (ADR-025).
 //   6. OPFS index row populate for later `openSound` lookup.
 //
-// The client accepts injected dependencies for every side-effectful
-// path (fetch, rustcore bridge, OPFS store, index, UUID gen). Tests
-// wire in-memory stubs; production wires real browser APIs.
+// Public surface matches the FS-ISS-009 spec:
+//   - listCatalog(): Promise<PackMeta[]>
+//   - download(packId, onProgress?): Promise<PackBytes>
+//   - unlock(packId, jwt): Promise<UnlockOutcome>
+//   - openSound(packId, soundId): Promise<ReadableStream<Uint8Array>>
+//   - evict(packId): Promise<void>
+//
+// Internal `unlockWithBytes` preserves the inject-bytes path for
+// offline tests + the consumer-app demo flow.
 
 import type {
   CatalogResponse,
+  EncryptedFileBytes,
   EntitlementResponse,
   OpfsIndexRow,
   PackBytes,
@@ -25,18 +32,28 @@ import { uuidV4 } from './opfs-store.js';
 import type { RustcoreBridge } from './rustcore-bridge.js';
 
 export interface PackClientDeps {
-  /** `fetch`-compatible function, pre-configured with the catalog origin. */
   fetch: typeof fetch;
-  /** Lazy rustcore bridge — loaded on first unlock. */
   rustcore: RustcoreBridge;
-  /** OPFS file store. */
   opfs: OpfsStore;
-  /** OPFS index table. */
   opfsIndex: OpfsIndex;
-  /** Optional override for testability (fixed-seed UUID). */
   newUuid?: () => string;
-  /** Optional override of SHA-256. */
   sha256?: (bytes: Uint8Array) => Promise<string>;
+}
+
+/**
+ * On-wire shape of `GET /packs/:packId/:version.zip` (JSON-encoded for
+ * M1; M2 switches to a real zip once we have an unzipper in-tree).
+ */
+interface PackBundleEnvelope {
+  pack_id: string;
+  manifest_bytes_b64: string;
+  signature_bytes_b64: string;
+  files: Array<{
+    path: string;
+    ciphertext_b64: string;
+    nonce_b64: string;
+    tag_b64: string;
+  }>;
 }
 
 export class PackClient {
@@ -60,32 +77,57 @@ export class PackClient {
   }
 
   /**
-   * Fetch the encrypted pack bundle. The caller provides the bundle
-   * bytes via `bundle` (typically a zip decoded up-stream). The
-   * client treats the bundle as opaque and hands it to the decrypt
-   * step via `unlock`.
+   * Fetch the encrypted pack bundle and return it as parsed
+   * `PackBytes` so `unlock` (or tests) can hand it to the decrypt
+   * pipeline directly.
    */
-  async downloadPack(
-    packId: string,
-    onProgress?: ProgressCb,
-  ): Promise<Response> {
+  async download(packId: string, onProgress?: ProgressCb): Promise<PackBytes> {
     const res = await this.deps.fetch(`/packs/${packId}/latest.zip`);
     if (!res.ok) {
       throw new Error(`pack fetch failed: ${res.status}`);
     }
+    onProgress?.(0.5);
+    const envelope = (await res.json()) as PackBundleEnvelope;
+    const files: EncryptedFileBytes[] = envelope.files.map((f) => ({
+      path: f.path,
+      ciphertext: base64ToBytes(f.ciphertext_b64),
+      nonce: base64ToBytes(f.nonce_b64),
+      tag: base64ToBytes(f.tag_b64),
+    }));
     onProgress?.(1);
-    return res;
+    return {
+      packId: envelope.pack_id,
+      manifestBytes: base64ToBytes(envelope.manifest_bytes_b64),
+      signatureBytes: base64ToBytes(envelope.signature_bytes_b64),
+      files,
+    };
   }
 
   /**
-   * Verify the manifest, fetch the entitlement, hand the key to
-   * rust-core, decrypt every file, and write OPFS entries.
-   *
-   * `packBytes` is supplied by the caller (after unzipping the
-   * downloaded bundle, which is a pipeline concern outside this
-   * class).
+   * 2-arg unlock per FS-ISS-009 spec: fetch the bundle, exchange the
+   * JWT for the pack key, decrypt, OPFS-write. Internally delegates
+   * to `unlockWithBytes` once the download completes.
    */
-  async unlock(
+  async unlock(packId: string, jwt: string): Promise<UnlockOutcome> {
+    let packBytes: PackBytes;
+    try {
+      packBytes = await this.download(packId);
+    } catch (err) {
+      return {
+        kind: 'manifest-rejected',
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+    return this.unlockWithBytes(packId, jwt, packBytes);
+  }
+
+  /**
+   * Used by tests + the consumer-app demo to feed pre-downloaded
+   * bytes straight into the decrypt pipeline. Kept on the public
+   * surface so the 2-arg `unlock` is implementable as
+   * `download` + `unlockWithBytes`.
+   */
+  async unlockWithBytes(
     packId: string,
     jwt: string,
     packBytes: PackBytes,
@@ -103,7 +145,10 @@ export class PackClient {
       };
     }
     if (verifiedPackId !== packId) {
-      return { kind: 'manifest-rejected', message: `pack id mismatch: ${verifiedPackId} vs ${packId}` };
+      return {
+        kind: 'manifest-rejected',
+        message: `pack id mismatch: ${verifiedPackId} vs ${packId}`,
+      };
     }
 
     const entRes = await this.deps.fetch('/entitlement', {
@@ -120,9 +165,6 @@ export class PackClient {
     try {
       await this.deps.rustcore.setPackKey(packKeyBytes);
     } finally {
-      // ADR-010: clear the main-thread copy of the key immediately
-      // regardless of success; the WASM vault holds its own
-      // Zeroizing copy.
       packKeyBytes.fill(0);
     }
 
@@ -130,7 +172,6 @@ export class PackClient {
       const newUuid = this.deps.newUuid ?? uuidV4;
       const sha256 = this.deps.sha256 ?? defaultSha256;
       const opfsPackUuid = newUuid();
-      const rows: OpfsIndexRow[] = [];
       for (const file of packBytes.files) {
         let plaintext: Uint8Array;
         try {
@@ -156,7 +197,6 @@ export class PackClient {
           sha256: await sha256(plaintext),
           bytes: plaintext.byteLength,
         };
-        rows.push(row);
         await this.deps.opfsIndex.put(row);
       }
       return { kind: 'ok' };
@@ -165,25 +205,14 @@ export class PackClient {
     }
   }
 
-  async openSound(packId: string, soundId: string): Promise<Uint8Array> {
-    const row = await this.deps.opfsIndex.lookup(packId, soundId);
-    if (!row) {
-      throw new Error(`no such sound: ${packId}/${soundId}`);
-    }
-    return this.deps.opfs.readFile(row.opfsPackUuid, row.opfsFileUuid);
-  }
-
   /**
-   * Stream-oriented read over a pack file. Returns a `ReadableStream<
-   * Uint8Array>` so downstream consumers (e.g. `audio-graph-ts`'s
-   * worklet loader) can process the plaintext without materializing
-   * the whole file on the main-thread heap.
-   *
-   * The OPFS handle is NEVER exposed — see the ADR-025 ESLint rule in
-   * `eslint.config.js` forbidding `URL.createObjectURL`.
+   * Stream-oriented sound reader. Returns a `ReadableStream<Uint8Array>`
+   * so the caller (audio-graph-ts worklet loader) can consume
+   * plaintext without materializing the whole file on the main-thread
+   * heap. ADR-025: the OPFS handle itself is never exposed.
    */
-  async openSoundStream(packId: string, soundId: string): Promise<ReadableStream<Uint8Array>> {
-    const bytes = await this.openSound(packId, soundId);
+  async openSound(packId: string, soundId: string): Promise<ReadableStream<Uint8Array>> {
+    const bytes = await this.openSoundBytes(packId, soundId);
     let offset = 0;
     const CHUNK = 64 * 1024;
     return new ReadableStream<Uint8Array>({
@@ -197,6 +226,19 @@ export class PackClient {
         offset = end;
       },
     });
+  }
+
+  /**
+   * Bytes accessor for consumers that don't want a stream (tests,
+   * bulk verification paths). Not part of the FS-ISS-009 public
+   * contract.
+   */
+  async openSoundBytes(packId: string, soundId: string): Promise<Uint8Array> {
+    const row = await this.deps.opfsIndex.lookup(packId, soundId);
+    if (!row) {
+      throw new Error(`no such sound: ${packId}/${soundId}`);
+    }
+    return this.deps.opfs.readFile(row.opfsPackUuid, row.opfsFileUuid);
   }
 
   async evict(packId: string): Promise<void> {

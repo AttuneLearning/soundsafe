@@ -132,23 +132,35 @@ pub fn load_roadmap(roadmap_json: &str) -> Result<(), JsValue> {
     with_engine(|engine| engine.load_roadmap(roadmap_json))
 }
 
-/// Composite pack loader matching the FS-ISS-007 spec entry point:
-/// verify manifest → install pack key (zeroized on return) → decrypt
-/// every file → return decrypted bytes (base64 in a JSON string the
-/// TS side parses). Issued from the decrypt worker.
+/// Composite pack loader matching the FS-ISS-007 spec entry point.
+/// Argument order matches the spec exactly: manifest → signature →
+/// encrypted files (JS array) → pack key. Pipeline: verify manifest
+/// → install pack key (immediately zeroed on return) → decrypt every
+/// file → return the decrypted set as a JSON string the TS side
+/// parses.
+///
+/// `encrypted_files` is a `JsValue` pointing at an array of
+/// `{path: string, ciphertext_b64: string, nonce_b64: string,
+/// tag_b64: string}` records. It is accepted as `JsValue` rather
+/// than a pre-serialized string so the worker can hand over decoded
+/// objects directly.
 #[wasm_bindgen(js_name = loadPack)]
 pub fn load_pack(
     manifest_bytes: &[u8],
     signature_bytes: &[u8],
+    encrypted_files: JsValue,
     pack_key_bytes: &js_sys::Uint8Array,
-    encrypted_files_json: &str,
 ) -> Result<String, JsValue> {
+    let files_json = js_sys::JSON::stringify(&encrypted_files)
+        .map(|s| String::from(s))
+        .map_err(|_| JsValue::from_str("loadPack: encrypted_files is not JSON-serializable"))?;
+
     let bytes = pack_key_bytes.to_vec();
     let result = with_engine(|engine| {
-        engine.load_pack(manifest_bytes, signature_bytes, &bytes, encrypted_files_json)
+        engine.load_pack(manifest_bytes, signature_bytes, &bytes, &files_json)
     });
-    // ADR-010: zero the JS-side buffer immediately. The transient Rust
-    // copy and the vault's copy are Zeroize-dropped.
+    // ADR-010: zero the JS-side buffer immediately. Transient Rust
+    // copy + vault copy are Zeroize-dropped.
     pack_key_bytes.fill(0, 0, pack_key_bytes.length());
     let mut scratch = bytes;
     for b in scratch.iter_mut() { *b = 0; }

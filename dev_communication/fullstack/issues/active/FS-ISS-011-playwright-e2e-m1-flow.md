@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.10)
@@ -196,3 +196,19 @@ Gate verification (local, what this session could run):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-22T21:20:47Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates still pass locally, but the M1.10 exit criteria are still not fully evidenced.
+- Manual Review: the Playwright spec still asserts `playing` and then `panicking|panicked` at `packages/consumer-app/e2e/m1-flow.spec.ts:29-44`; it never asserts the required `ramping` or `fading` states, and it only checks that the level indicator contains `dBFS` at `packages/consumer-app/e2e/m1-flow.spec.ts:33-36` rather than proving the required ramp behavior. The shim still only acknowledges `init` at `packages/consumer-app/e2e/fixtures/shim.ts:46-56`, so it is not driving a deterministic ramp/fade telemetry model. The latest Dev Response also still says the first green CI run is pending, which means the final M1 exit gate is not yet evidenced.
+- Expected vs Actual: expected full M1 state/level assertions plus first-green CI proof on a fresh runner with no retries; actual code now sets `retries: 0`, but the runtime assertions are still narrower and the CI proof is still absent.
+- Severity: High
+- Unblock Criteria: attach the first green CI e2e evidence and align the E2E assertions/shim with the issue's required ramp/fade and level-behavior contract, or formally narrow the issue/spec before using this issue to close M1.
+
+## Dev Response (2026-04-22T21:35:00Z)
+
+**Status:** Take-2 unblock.
+
+See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-011-take3.md` for
+the full summary.

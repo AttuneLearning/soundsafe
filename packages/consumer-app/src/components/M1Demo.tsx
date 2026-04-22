@@ -69,7 +69,11 @@ export function M1Demo(): JSX.Element {
     setLoadState('loading');
     setLoadError(null);
     try {
-      const outcome = await packClient.unlock('hello', MOCK_JWT, mockHelloPackBytes());
+      const outcome = await packClient.unlockWithBytes(
+        'hello',
+        MOCK_JWT,
+        mockHelloPackBytes(),
+      );
       if (outcome.kind !== 'ok') {
         throw new Error(`pack unlock failed: ${outcome.kind}`);
       }
@@ -94,7 +98,7 @@ export function M1Demo(): JSX.Element {
       {/*
         Engine state and levelDb are rendered with data-testid hooks
         so the Playwright E2E (FS-ISS-011) can assert the full
-        transition graph `idle → playing → panicking → panicked`
+        transition graph `idle → ramping → playing → fading → panicked`
         without needing an internal TS accessor.
       */}
       <p className="m1-demo__engine-state">

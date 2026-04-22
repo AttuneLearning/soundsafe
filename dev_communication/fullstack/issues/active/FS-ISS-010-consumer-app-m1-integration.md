@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.9)
@@ -186,3 +186,19 @@ Gate verification (local, all green):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-22T21:20:47Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates still pass, but the default consumer-app flow is still an in-memory demo shell rather than the written M1.9 end-to-end stack.
+- Manual Review: the app's default service factory still boots `InMemoryHost`, a noop `RustcoreBridge`, and in-memory OPFS stubs at `packages/consumer-app/src/App.tsx:25-41`, so the shipped app is not exercising the promised React → audio-graph-ts → rust-core → audio path. The load action now routes through `packClient.unlock`, but it still requires the extra `mockHelloPackBytes()` argument at `packages/consumer-app/src/components/M1Demo.tsx:68-77`, which means the app is not yet on the issue's `packClient.unlock('hello', mockJwt)` contract.
+- Expected vs Actual: expected the M1 demo to prove the full stack with the issue's load API; actual code improves the UI wiring and telemetry, but the default app still runs on fake host/bridge services.
+- Severity: High
+- Unblock Criteria: swap the default consumer-app services to the real `audio-graph-ts` / `rust-core` / pack-client path that the issue describes, or formally narrow the issue/spec to accept the current in-memory demo architecture.
+
+## Dev Response (2026-04-22T21:35:00Z)
+
+**Status:** Take-2 unblock.
+
+See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-010-take3.md` for
+the full summary.

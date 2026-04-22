@@ -102,7 +102,7 @@ describe('PackClient', () => {
   it('unlock happy path writes OPFS + index + clears key', async () => {
     const d = deps();
     const client = new PackClient(d);
-    const outcome = await client.unlock('hello', 'jwt', packBytes());
+    const outcome = await client.unlockWithBytes('hello', 'jwt', packBytes());
     expect(outcome).toEqual({ kind: 'ok' });
 
     // The fake rustcore recorded the key the client installed.
@@ -129,7 +129,7 @@ describe('PackClient', () => {
     const d = deps();
     const fake = d.rustcore as FakeRustcore;
     const client = new PackClient(d);
-    await client.unlock('hello', 'jwt', packBytes());
+    await client.unlockWithBytes('hello', 'jwt', packBytes());
 
     // The installedKeys snapshot was captured BEFORE the main-thread fill(0),
     // so it reflects the pre-clear bytes (non-zero). This asserts the
@@ -142,7 +142,7 @@ describe('PackClient', () => {
     const fake = new FakeRustcore();
     fake.manifestShouldFail = true;
     const d = deps({ rustcore: fake });
-    const outcome = await new PackClient(d).unlock('hello', 'jwt', packBytes());
+    const outcome = await new PackClient(d).unlockWithBytes('hello', 'jwt', packBytes());
     expect(outcome.kind).toBe('manifest-rejected');
   });
 
@@ -150,7 +150,7 @@ describe('PackClient', () => {
     const fake = new FakeRustcore();
     fake.manifestPackId = 'other';
     const d = deps({ rustcore: fake });
-    const outcome = await new PackClient(d).unlock('hello', 'jwt', packBytes());
+    const outcome = await new PackClient(d).unlockWithBytes('hello', 'jwt', packBytes());
     expect(outcome.kind).toBe('manifest-rejected');
   });
 
@@ -160,7 +160,7 @@ describe('PackClient', () => {
         '/entitlement': () => new Response('forbidden', { status: 403 }),
       }),
     });
-    const outcome = await new PackClient(d).unlock('hello', 'jwt', packBytes());
+    const outcome = await new PackClient(d).unlockWithBytes('hello', 'jwt', packBytes());
     expect(outcome).toEqual({ kind: 'entitlement-rejected', status: 403 });
   });
 
@@ -168,7 +168,7 @@ describe('PackClient', () => {
     const fake = new FakeRustcore();
     fake.failOnDecrypt = true;
     const d = deps({ rustcore: fake });
-    const outcome = await new PackClient(d).unlock('hello', 'jwt', packBytes());
+    const outcome = await new PackClient(d).unlockWithBytes('hello', 'jwt', packBytes());
     expect(outcome.kind).toBe('decrypt-failed');
     if (outcome.kind === 'decrypt-failed') {
       expect(outcome.path).toBe('audio/01-bark.opus.enc');
@@ -180,23 +180,65 @@ describe('PackClient', () => {
   it('openSound returns the plaintext bytes stored for the pack/sound', async () => {
     const d = deps();
     const client = new PackClient(d);
-    await client.unlock('hello', 'jwt', packBytes());
-    const bytes = await client.openSound('hello', 'audio/01-bark.opus.enc');
+    await client.unlockWithBytes('hello', 'jwt', packBytes());
+    const bytes = await client.openSoundBytes('hello', 'audio/01-bark.opus.enc');
     expect(bytes.byteLength).toBe(256);
   });
 
   it('openSound throws for an unknown sound id', async () => {
     const d = deps();
     const client = new PackClient(d);
-    await client.unlock('hello', 'jwt', packBytes());
-    await expect(client.openSound('hello', 'nope')).rejects.toThrow();
+    await client.unlockWithBytes('hello', 'jwt', packBytes());
+    await expect(client.openSoundBytes('hello', 'nope')).rejects.toThrow();
+  });
+
+  it('2-arg unlock downloads the bundle via /packs/:packId/latest.zip then decrypts', async () => {
+    const b64 = (bytes: Uint8Array) =>
+      globalThis.btoa(String.fromCharCode(...bytes));
+    const envelope = {
+      pack_id: 'hello',
+      manifest_bytes_b64: b64(SAMPLE_MANIFEST),
+      signature_bytes_b64: b64(SAMPLE_SIG),
+      files: [
+        {
+          path: 'audio/01-bark.opus.enc',
+          ciphertext_b64: b64(SAMPLE_FILE_BYTES),
+          nonce_b64: b64(new Uint8Array(12)),
+          tag_b64: b64(new Uint8Array(16)),
+        },
+      ],
+    };
+    const d = deps({
+      fetch: fetchStub({
+        '/packs/hello/latest.zip': () => new Response(JSON.stringify(envelope), { status: 200 }),
+        '/entitlement': () =>
+          new Response(JSON.stringify({ packKeyBase64: SAMPLE_KEY_BASE64 }), { status: 200 }),
+      }),
+    });
+    const outcome = await new PackClient(d).unlock('hello', 'jwt');
+    expect(outcome).toEqual({ kind: 'ok' });
+  });
+
+  it('openSound returns a ReadableStream the caller can drain', async () => {
+    const d = deps();
+    const client = new PackClient(d);
+    await client.unlockWithBytes('hello', 'jwt', packBytes());
+    const stream = await client.openSound('hello', 'audio/01-bark.opus.enc');
+    const reader = stream.getReader();
+    let total = 0;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value!.byteLength;
+    }
+    expect(total).toBe(256);
   });
 
   it('evict removes both opfs index rows and opfs files', async () => {
     const d = deps();
     const client = new PackClient(d);
-    await client.unlock('hello', 'jwt', packBytes());
+    await client.unlockWithBytes('hello', 'jwt', packBytes());
     await client.evict('hello');
-    await expect(client.openSound('hello', 'audio/01-bark.opus.enc')).rejects.toThrow();
+    await expect(client.openSoundBytes('hello', 'audio/01-bark.opus.enc')).rejects.toThrow();
   });
 });

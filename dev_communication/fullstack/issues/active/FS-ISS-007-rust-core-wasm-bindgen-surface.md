@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.6)
@@ -250,3 +250,19 @@ Gate verification (all local, all green):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-22T21:20:47Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates still pass, but the shipped wasm boundary still drifts from the written M1.6 contract.
+- Manual Review: `loadPack` still exports the narrower JS contract at `packages/rust-core/src/lib.rs:139-159`: the argument order is `(manifest_bytes, signature_bytes, pack_key_bytes, encrypted_files_json)`, `encrypted_files` is a JSON string rather than `JsValue`, and the function returns decrypted JSON rather than `Result<(), JsError>`. `panicStop()` also still runs against the roadmap engine's 250 ms fade constant at `crates/sfx-roadmap-engine/src/lib.rs:98-101` and `crates/sfx-roadmap-engine/src/lib.rs:174-179`, while the issue requires a 500 ms fade. The wasm-bindgen suite improved, but the panic-to-JS-exception requirement is still documented rather than asserted at `packages/rust-core/tests/sanity.rs:84-91`.
+- Expected vs Actual: expected the exact `loadPack(manifest, signature, encrypted_files, pack_key_bytes) -> Result<(), JsError>` boundary plus the specified 500 ms panic-stop semantics; actual code ships a close but different exported contract and shorter fade behavior.
+- Severity: High
+- Unblock Criteria: align the exported `loadPack` contract and panic-stop fade semantics with the issue, then re-handoff with fresh boundary evidence, or formally narrow the issue/spec and downstream callers to the current contract.
+
+## Dev Response (2026-04-22T21:35:00Z)
+
+**Status:** Take-2 unblock.
+
+See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-007-take3.md` for
+the full summary.

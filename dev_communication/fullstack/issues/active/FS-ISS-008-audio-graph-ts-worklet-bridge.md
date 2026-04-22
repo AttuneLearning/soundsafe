@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.7)
@@ -183,3 +183,19 @@ Gate verification (local, all green):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-22T21:20:47Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates still pass, but the browser-facing `AudioEngine` contract remains narrower than M1.7 requires.
+- Manual Review: `AudioEngine.init()` still delegates to an injected `AudioEngineHost` at `packages/audio-graph-ts/src/AudioEngine.ts:46-53` and `packages/audio-graph-ts/src/AudioEngine.ts:91-104`; this package still does not ship the concrete browser boot path the issue describes. More importantly, the exposed state contract is still `uninitialized | initializing | idle | playing | panicking | panicked | errored` at `packages/audio-graph-ts/src/AudioEngine.ts:29-36`, not the required `idle | ramping | playing | fading | panicked`, and the test suite still asserts `panicking` rather than `fading` at `packages/audio-graph-ts/src/__tests__/AudioEngine.test.ts:56-77`.
+- Expected vs Actual: expected the exact M1.7 state/boot API and hook contract; actual code ships the fast-ring readers and combined hook, but still with a narrower host-injected lifecycle model.
+- Severity: High
+- Unblock Criteria: land the exact browser-facing `AudioEngine` boot and state contract in `@soundsafe/audio-graph-ts`, or formally narrow the issue/spec and the dependent M1.9/M1.10 expectations to the current lifecycle model.
+
+## Dev Response (2026-04-22T21:35:00Z)
+
+**Status:** Take-2 unblock.
+
+See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-008-take3.md` for
+the full summary.

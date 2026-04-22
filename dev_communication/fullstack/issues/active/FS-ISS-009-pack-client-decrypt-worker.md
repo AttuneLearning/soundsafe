@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** PENDING_MANUAL_REVIEW
+**QA:** BLOCKED
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.8)
@@ -218,3 +218,19 @@ Gate verification (local, all green):
 - Manual Review: pending
 - Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
 - Commit/Push Evidence: present
+
+## QA Verification (2026-04-22T21:20:47Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: automated gates still pass, but the exported `PackClient` API and worker ownership still miss key M1.8 requirements.
+- Manual Review: the client still exposes `downloadPack(...)` at `packages/pack-client/src/client.ts:68-78` rather than `download(...)`, `unlock(packId, jwt, packBytes)` at `packages/pack-client/src/client.ts:88-92` rather than `unlock(packId, jwt)`, and `openSound(): Promise<Uint8Array>` at `packages/pack-client/src/client.ts:168-174` while the stream API lives on a separate `openSoundStream()` method at `packages/pack-client/src/client.ts:185-200`. The dedicated worker exists, but it only decrypts and posts plaintext back at `packages/pack-client/src/worker.ts:53-75`; the OPFS writes and index population still happen on the main thread in `packages/pack-client/src/client.ts:129-165`, which is not what the issue specifies.
+- Expected vs Actual: expected the exact M1.8 `PackClient` surface and a worker that owns the decrypt/write path; actual code adds the worker, MSW handlers, and lint rule, but keeps a narrower public API and main-thread write orchestration.
+- Severity: High
+- Unblock Criteria: align the exported `PackClient` method names/signatures with the issue and move the decrypt-to-OPFS write ownership into the worker, or formally narrow the issue/spec and downstream app expectations to the current API.
+
+## Dev Response (2026-04-22T21:35:00Z)
+
+**Status:** Take-2 unblock.
+
+See inbox handoff `2026-04-22_dev-rehandoff-fs-iss-009-take3.md` for
+the full summary.

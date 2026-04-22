@@ -140,7 +140,7 @@ describe('M1 demo wiring', () => {
   it('load routes through packClient.unlock before engine.loadRoadmap', async () => {
     localStorage.setItem(DISCLAIMER_KEY, new Date().toISOString());
     const { engine, host, packClient } = buildServices();
-    const unlockSpy = vi.spyOn(packClient, 'unlock');
+    const unlockSpy = vi.spyOn(packClient, 'unlockWithBytes');
     const loadRoadmapSpy = vi.spyOn(engine, 'loadRoadmap');
 
     void engine.init({

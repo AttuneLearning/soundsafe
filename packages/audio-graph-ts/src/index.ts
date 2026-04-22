@@ -8,6 +8,8 @@ export {
   AudioEngine,
   InMemoryHost,
 } from './AudioEngine.js';
+export { WebAudioHost, isWebAudioAvailable } from './WebAudioHost.js';
+export type { WebAudioHostConfig } from './WebAudioHost.js';
 export type {
   AudioEngineConfig,
   AudioEngineHost,

@@ -96,9 +96,9 @@ pub enum RunnerState {
 }
 
 /// Duration of the panic-stop fade before `PanicFadeComplete` is
-/// emitted. 250 ms matches the minimum `RampUp::MIN_MS` from
-/// `sfx-safety`.
-pub const PANIC_FADE_MS: u32 = 250;
+/// emitted. 500 ms is the ADR-015 / M1.6 contract — the panic button
+/// always fades over this window regardless of the active rails.
+pub const PANIC_FADE_MS: u32 = 500;
 
 /// Drives a `Roadmap` against a `Clock`.
 #[derive(Debug)]

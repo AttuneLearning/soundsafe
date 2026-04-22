@@ -8,39 +8,41 @@ test.describe('M1 flow', () => {
     await page.goto('/');
   });
 
-  test('disclaimer → load → play → panic → grounding', async ({ page }) => {
+  test('disclaimer → load → ramp → play → fade → panicked', async ({ page }) => {
     // 1. Disclaimer modal is present.
     await expect(page.getByRole('button', { name: /I understand. Continue./i })).toBeVisible();
 
     // 2. Acknowledge.
     await page.getByRole('button', { name: /I understand. Continue./i }).click();
 
-    // 3. M1 demo is visible; engine state is 'idle' (or 'initializing'
-    //    the brief moment before the InMemoryHost posts the `ready`
-    //    ack). Wait for the transition.
+    // 3. M1 demo is visible; engine state settles at 'idle' after
+    //    the brief 'initializing' window on boot.
     await expect(page.getByTestId('m1-engine-state')).toHaveText(/idle|initializing/);
     await expect(page.getByTestId('m1-load')).toBeVisible();
 
-    // 4. Load pack. packClient.unlock + engine.loadRoadmap must both
+    // 4. Load pack — packClient.unlock + engine.loadRoadmap both
     //    resolve before Play becomes enabled.
     await page.getByTestId('m1-load').click();
     await expect(page.getByTestId('m1-play')).toBeEnabled();
+    await expect(page.getByTestId('m1-engine-state')).toHaveText('idle');
 
-    // 5. Play. Engine state progresses to 'playing'.
+    // 5. Play → engine enters `ramping` for the ramp window, then
+    //    transitions to `playing` once ramp-up completes.
     await page.getByTestId('m1-play').click();
-    await expect(page.getByTestId('m1-engine-state')).toHaveText('playing');
+    await expect(page.getByTestId('m1-engine-state')).toHaveText('ramping');
+    await expect(page.getByTestId('m1-engine-state')).toHaveText('playing', { timeout: 5_000 });
 
-    // 6. levelDb indicator renders a numeric value (or the silence
-    //    sentinel). Either way, the telemetry path is live.
+    // 6. levelDb indicator renders a numeric value (or silence
+    //    sentinel). Either way the telemetry pipeline is live.
     const levelText = await page.getByTestId('m1-level-db').textContent();
     expect(levelText).toMatch(/dBFS/);
 
-    // 7. Panic via Escape.
+    // 7. Panic via Escape → `fading` then `panicked`.
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('m1-engine-state')).toHaveText(/panicking|panicked/);
-
-    // 8. After the fade, state is 'panicked' and Grounding is visible.
+    await expect(page.getByTestId('m1-engine-state')).toHaveText('fading');
     await expect(page.getByTestId('m1-engine-state')).toHaveText('panicked', { timeout: 2_000 });
+
+    // 8. Grounding button appears once the fade finishes.
     await expect(page.getByTestId('m1-grounding')).toBeVisible();
   });
 
@@ -50,16 +52,19 @@ test.describe('M1 flow', () => {
     await expect(page.getByTestId('m1-load')).toBeVisible();
   });
 
-  test('pause + play returns engine to playing state', async ({ page }) => {
+  test('pause during ramp returns to idle; play re-enters ramping', async ({ page }) => {
     await page.getByRole('button', { name: /I understand. Continue./i }).click();
     await page.getByTestId('m1-load').click();
     await expect(page.getByTestId('m1-play')).toBeEnabled();
     await page.getByTestId('m1-play').click();
-    await expect(page.getByTestId('m1-engine-state')).toHaveText('playing');
+    await expect(page.getByTestId('m1-engine-state')).toHaveText('ramping');
+    // Pause mid-ramp — state should return to idle, with no stuck
+    // state in between.
     await page.getByTestId('m1-pause').click();
     await expect(page.getByTestId('m1-engine-state')).toHaveText('idle');
+    // Play again → ramping again.
     await page.getByTestId('m1-play').click();
-    await expect(page.getByTestId('m1-engine-state')).toHaveText('playing');
+    await expect(page.getByTestId('m1-engine-state')).toHaveText('ramping');
   });
 
   test('a11y: no critical/serious axe violations on the M1 demo screen', async ({ page }) => {

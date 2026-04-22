@@ -24,14 +24,18 @@ import type { FastRingEvent } from './fast-ring.js';
 export type ParamPath = `chain[${number}].${string}`;
 
 /**
- * High-level lifecycle state exposed to React.
+ * High-level lifecycle state exposed to React. The `idle → ramping
+ * → playing → fading → panicked` quintet is the FS-ISS-008 contract;
+ * `uninitialized` / `initializing` / `errored` extend the set to
+ * cover boot + error paths without breaking the spec.
  */
 export type AudioEngineState =
   | 'uninitialized'
   | 'initializing'
   | 'idle'
+  | 'ramping'
   | 'playing'
-  | 'panicking'
+  | 'fading'
   | 'panicked'
   | 'errored';
 
@@ -76,6 +80,8 @@ export class AudioEngine {
   private samples = 0;
   private levelDb = -120;
   private sampleRate = 48_000;
+  private rampMs = 3_000;
+  private rampTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(host: AudioEngineHost, paramTable = DEFAULT_PARAM_TABLE) {
     this.host = host;
@@ -103,16 +109,37 @@ export class AudioEngine {
     this.transition('idle');
   }
 
+  /**
+   * Start playback. `idle → ramping → playing`. Uses the ramp-up
+   * duration from the engine config (default 3 s per ADR-015). In
+   * test hosts that don't actually play audio, `ramping → playing`
+   * still fires via setTimeout so the observable state sequence
+   * matches the real path.
+   */
   async play(): Promise<void> {
     await this.host.resume();
-    if (this.state === 'idle') {
-      this.transition('playing');
+    if (this.state === 'idle' || this.state === 'panicked' || this.state === 'errored') {
+      this.transition('ramping');
+      // Drive the ramp → playing transition locally; the audio
+      // graph's ramp envelope runs in parallel on the worklet.
+      const rampMs = this.rampMs;
+      const promise = new Promise<void>((resolve) => {
+        this.rampTimer = setTimeout(() => {
+          if (this.state === 'ramping') this.transition('playing');
+          resolve();
+        }, rampMs);
+      });
+      await promise;
     }
   }
 
   async pause(): Promise<void> {
+    if (this.rampTimer !== null) {
+      clearTimeout(this.rampTimer);
+      this.rampTimer = null;
+    }
     await this.host.suspend();
-    if (this.state === 'playing') {
+    if (this.state === 'playing' || this.state === 'ramping') {
       this.transition('idle');
     }
   }
@@ -187,12 +214,16 @@ export class AudioEngine {
     });
   }
 
-  /** Panic-stop; resolves when the worklet reports `PanicFadeComplete`. */
+  /** Panic-stop; `(any) → fading → panicked`. Idempotent. */
   async panicStop(): Promise<void> {
-    if (this.state === 'panicking' || this.state === 'panicked') {
+    if (this.state === 'fading' || this.state === 'panicked') {
       return;
     }
-    this.transition('panicking');
+    if (this.rampTimer !== null) {
+      clearTimeout(this.rampTimer);
+      this.rampTimer = null;
+    }
+    this.transition('fading');
     const done = this.once('PanicFadeComplete');
     this.host.postToWorklet({ kind: 'panicStop' });
     await done;

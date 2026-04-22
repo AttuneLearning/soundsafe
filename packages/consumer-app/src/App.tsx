@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AudioEngine, InMemoryHost } from '@soundsafe/audio-graph-ts';
+import {
+  AudioEngine,
+  InMemoryHost,
+  WebAudioHost,
+  isWebAudioAvailable,
+} from '@soundsafe/audio-graph-ts';
 import {
   InMemoryOpfsIndex,
   InMemoryOpfsStore,
   PackClient,
+  createRealRustcoreBridge,
 } from '@soundsafe/pack-client';
 import type { RustcoreBridge } from '@soundsafe/pack-client';
 import { AudioServicesProvider, type AppServices } from './audio-context.js';
@@ -13,28 +19,53 @@ import { PanicStop } from './components/PanicStop.js';
 
 const DISCLAIMER_KEY = 'soundsafe.disclaimer.v1.acknowledgedAt';
 
+const SAMPLE_RATE = 48_000;
+const BLOCK_SIZE = 128;
+const WORKLET_URL = new URL('./worklet-bootstrap.ts', import.meta.url).href;
+const BUNDLED_PUBLIC_KEY = new Uint8Array(32); // M1 stub; M2 replaces.
+
 /**
- * Default AppServices used when the consumer app boots without an
- * injected override. The M1 demo wires an AudioEngine backed by
- * `InMemoryHost` (wire-up verification, not real audio — real
- * AudioWorklet wiring lands in M1.10's Playwright E2E per the issue
- * note) and a PackClient with in-memory OPFS stubs.
- *
- * Tests pass an override via `createApp({ services })`.
+ * Default `AppServices` for the shipped consumer app. Picks the
+ * real browser stack (`WebAudioHost` + wasm-pack rust-core bridge)
+ * when running in a COOP/COEP-isolated page that supports
+ * `AudioContext` + `SharedArrayBuffer`, and falls back to in-memory
+ * stubs otherwise (happy-dom test runs, legacy browsers). Callers
+ * can still pass `services` directly to bypass auto-selection.
  */
 function createDefaultServices(): AppServices {
-  const host = new InMemoryHost();
-  const engine = new AudioEngine(host);
+  let engine: AudioEngine;
+  let rustcore: RustcoreBridge;
 
-  const noopRustcore: RustcoreBridge = {
-    verifyManifest: async () => 'hello',
-    setPackKey: async () => {},
-    decryptFile: async (c) => new Uint8Array(c),
-    clearPackKey: async () => {},
-  };
+  if (isWebAudioAvailable()) {
+    engine = new AudioEngine(
+      new WebAudioHost({
+        workletUrl: WORKLET_URL,
+        sampleRate: SAMPLE_RATE,
+      }),
+    );
+    rustcore = createRealRustcoreBridge({
+      // `rust-core` is the unscoped wasm-pack output — the package
+      // name in `packages/rust-core/pkg/package.json`.
+      loadModule: () => import('rust-core') as Promise<never>,
+      sampleRate: SAMPLE_RATE,
+      blockSize: BLOCK_SIZE,
+      bundledPublicKey: BUNDLED_PUBLIC_KEY,
+    });
+  } else {
+    engine = new AudioEngine(new InMemoryHost());
+    rustcore = {
+      verifyManifest: async () => 'hello',
+      setPackKey: async () => {},
+      decryptFile: async (c) => new Uint8Array(c),
+      clearPackKey: async () => {},
+    };
+  }
+
   const packClient = new PackClient({
-    fetch: globalThis.fetch?.bind(globalThis) ?? (async () => new Response('', { status: 404 })),
-    rustcore: noopRustcore,
+    fetch:
+      globalThis.fetch?.bind(globalThis) ??
+      (async () => new Response('', { status: 404 })),
+    rustcore,
     opfs: new InMemoryOpfsStore(),
     opfsIndex: new InMemoryOpfsIndex(),
   });

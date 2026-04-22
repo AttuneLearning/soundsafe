@@ -53,7 +53,7 @@ describe('AudioEngine', () => {
     expect(() => engine.setParam('not-a-path' as never, 0)).toThrow();
   });
 
-  it('panicStop transitions through panicking → panicked on PanicFadeComplete', async () => {
+  it('panicStop transitions through fading → panicked on PanicFadeComplete', async () => {
     const host = new InMemoryHost();
     const engine = new AudioEngine(host);
     const initPromise = engine.init(fakeConfig());
@@ -64,7 +64,7 @@ describe('AudioEngine', () => {
     engine.subscribeState((s) => states.push(s));
 
     const stopped = engine.panicStop();
-    expect(engine.currentState()).toBe('panicking');
+    expect(engine.currentState()).toBe('fading');
     expect(host.outbound.at(-1)).toEqual({ kind: 'panicStop' });
 
     host.emitInbound({
@@ -74,7 +74,7 @@ describe('AudioEngine', () => {
     await stopped;
 
     expect(engine.currentState()).toBe('panicked');
-    expect(states).toEqual(['idle', 'panicking', 'panicked']);
+    expect(states).toEqual(['idle', 'fading', 'panicked']);
   });
 
   it('panicStop is idempotent after the first call', async () => {
