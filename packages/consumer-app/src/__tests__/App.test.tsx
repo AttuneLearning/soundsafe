@@ -38,10 +38,29 @@ function buildServices() {
   };
   // A 32-byte key base64 for the in-memory entitlement endpoint.
   const KEY_B64 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+  const envelope = {
+    pack_id: 'hello',
+    manifest_bytes_b64: globalThis.btoa('{"pack_id":"hello"}'),
+    signature_bytes_b64: globalThis.btoa('\0'.repeat(64)),
+    files: [
+      {
+        path: 'audio/01-bark.opus.enc',
+        ciphertext_b64: globalThis.btoa('\0'.repeat(256)),
+        nonce_b64: globalThis.btoa('\0'.repeat(12)),
+        tag_b64: globalThis.btoa('\0'.repeat(16)),
+      },
+    ],
+  };
   const stubFetch = (async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
     if (url.endsWith('/entitlement')) {
       return new Response(JSON.stringify({ packKeyBase64: KEY_B64 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/packs/hello/')) {
+      return new Response(JSON.stringify(envelope), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
@@ -140,7 +159,7 @@ describe('M1 demo wiring', () => {
   it('load routes through packClient.unlock before engine.loadRoadmap', async () => {
     localStorage.setItem(DISCLAIMER_KEY, new Date().toISOString());
     const { engine, host, packClient } = buildServices();
-    const unlockSpy = vi.spyOn(packClient, 'unlockWithBytes');
+    const unlockSpy = vi.spyOn(packClient, 'unlock');
     const loadRoadmapSpy = vi.spyOn(engine, 'loadRoadmap');
 
     void engine.init({
@@ -165,7 +184,7 @@ describe('M1 demo wiring', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    expect(unlockSpy).toHaveBeenCalledWith('hello', expect.any(String), expect.any(Object));
+    expect(unlockSpy).toHaveBeenCalledWith('hello', expect.any(String));
     expect(loadRoadmapSpy).toHaveBeenCalled();
     // unlock ran before loadRoadmap.
     const unlockOrder = unlockSpy.mock.invocationCallOrder[0] ?? -1;

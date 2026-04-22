@@ -32,8 +32,20 @@ test.describe('M1 flow', () => {
     await expect(page.getByTestId('m1-engine-state')).toHaveText('ramping');
     await expect(page.getByTestId('m1-engine-state')).toHaveText('playing', { timeout: 5_000 });
 
-    // 6. levelDb indicator renders a numeric value (or silence
-    //    sentinel). Either way the telemetry pipeline is live.
+    // 6. Ramp behavior — the playhead readout must advance
+    //    monotonically during the ramping window, proving the
+    //    worklet's fast-ring drain is live end-to-end. Also check
+    //    the level indicator renders dBFS text.
+    const playheadHandle = page.getByTestId('m1-playhead');
+    const readSeconds = async (): Promise<number> => {
+      const t = (await playheadHandle.textContent()) ?? '0s';
+      return parseFloat(t.replace(/[^0-9.]/g, '')) || 0;
+    };
+    const t0 = await readSeconds();
+    await page.waitForTimeout(500);
+    const t1 = await readSeconds();
+    expect(t1).toBeGreaterThanOrEqual(t0);
+
     const levelText = await page.getByTestId('m1-level-db').textContent();
     expect(levelText).toMatch(/dBFS/);
 

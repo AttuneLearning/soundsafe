@@ -172,6 +172,10 @@ pub struct Engine {
     manifest: Option<Manifest>,
     panic_requested: bool,
     last_peak: f32,
+    /// Plaintext buffer filled by `load_pack` and drained by
+    /// `take_decrypted_file()`. The caller (decrypt worker on the
+    /// JS side) owns OPFS I/O — rust-core only produces the bytes.
+    decrypted_files: Vec<DecryptedFileDto>,
 }
 
 impl Engine {
@@ -210,6 +214,7 @@ impl Engine {
             manifest: None,
             panic_requested: false,
             last_peak: 0.0,
+            decrypted_files: Vec::new(),
         })
     }
 
@@ -352,18 +357,18 @@ impl Engine {
         signature_bytes: &[u8],
         pack_key_bytes: &[u8],
         encrypted_files_json: &str,
-    ) -> Result<Vec<DecryptedFileDto>, EngineError> {
+    ) -> Result<(), EngineError> {
         self.load_pack_manifest(manifest_bytes, signature_bytes)?;
         self.install_pack_key(pack_key_bytes)?;
         let files: Vec<EncryptedFileDto> = serde_json::from_str(encrypted_files_json)?;
-        let mut out = Vec::with_capacity(files.len());
+        self.decrypted_files.clear();
         let decrypt_result = (|| -> Result<(), EngineError> {
             for f in files {
                 let nonce = base64_decode(&f.nonce_b64)?;
                 let tag = base64_decode(&f.tag_b64)?;
                 let ciphertext = base64_decode(&f.ciphertext_b64)?;
                 let plaintext = self.decrypt_file(&ciphertext, &nonce, &tag)?;
-                out.push(DecryptedFileDto {
+                self.decrypted_files.push(DecryptedFileDto {
                     path: f.path,
                     plaintext_len: plaintext.len(),
                     plaintext_b64: base64_encode(&plaintext),
@@ -371,12 +376,22 @@ impl Engine {
             }
             Ok(())
         })();
-        // Always clear the vault — the caller is presumed to write the
-        // plaintext out via the decrypted-files return before making
-        // more calls.
         self.clear_pack_key();
         decrypt_result?;
-        Ok(out)
+        Ok(())
+    }
+
+    /// Number of decrypted files the pack loader produced. The
+    /// worker drains these via `take_decrypted_file()` and writes
+    /// each one to OPFS.
+    pub fn decrypted_file_count(&self) -> usize { self.decrypted_files.len() }
+
+    /// Remove and return the first queued decrypted file, or `None`
+    /// if the buffer is empty. The FIFO order preserves the manifest
+    /// file order so consumers can pair decrypted bytes with the
+    /// original paths.
+    pub fn take_decrypted_file(&mut self) -> Option<DecryptedFileDto> {
+        if self.decrypted_files.is_empty() { None } else { Some(self.decrypted_files.remove(0)) }
     }
 
     /// Drain roadmap events as a JSON array (stable wire format for
@@ -627,18 +642,20 @@ mod tests {
                 }
             }).collect::<Vec<_>>()
         ).unwrap();
-        let decrypted = engine.load_pack(
+        engine.load_pack(
             &pack.manifest_bytes,
             &pack.signature_bytes,
             &pack.pack_key,
             &files_json,
         ).unwrap();
-        assert_eq!(decrypted.len(), 1);
+        assert_eq!(engine.decrypted_file_count(), 1);
+        let taken = engine.take_decrypted_file().expect("one file queued");
         let expected = &pack.encrypted_files[0].plaintext;
         let got = base64::engine::general_purpose::STANDARD
-            .decode(&decrypted[0].plaintext_b64)
+            .decode(&taken.plaintext_b64)
             .unwrap();
         assert_eq!(&got, expected);
+        assert_eq!(engine.decrypted_file_count(), 0);
         // Vault cleared after load_pack returns.
         assert!(!engine.has_pack_key());
     }

@@ -56,8 +56,18 @@ interface PackBundleEnvelope {
   }>;
 }
 
+/** Error raised by the 2-arg `unlock()` on any failure path so the
+ *  caller sees the richer outcome even through `throw/catch`. */
+export class UnlockError extends Error {
+  constructor(readonly outcome: UnlockOutcome) {
+    super(`unlock failed: ${outcome.kind}`);
+    this.name = 'UnlockError';
+  }
+}
+
 export class PackClient {
   private readonly deps: PackClientDeps;
+  private readonly bundleCache = new Map<string, PackBytes>();
 
   constructor(deps: PackClientDeps) {
     this.deps = deps;
@@ -77,11 +87,12 @@ export class PackClient {
   }
 
   /**
-   * Fetch the encrypted pack bundle and return it as parsed
-   * `PackBytes` so `unlock` (or tests) can hand it to the decrypt
-   * pipeline directly.
+   * Fetch the encrypted pack bundle into the Cache API. Per
+   * FS-ISS-009 the spec's `download` returns `Promise<void>` —
+   * the bundle is cached on-disk / in-memory and `unlock` picks it
+   * up via `downloadedBundle()`. Throws on network failure.
    */
-  async download(packId: string, onProgress?: ProgressCb): Promise<PackBytes> {
+  async download(packId: string, onProgress?: ProgressCb): Promise<void> {
     const res = await this.deps.fetch(`/packs/${packId}/latest.zip`);
     if (!res.ok) {
       throw new Error(`pack fetch failed: ${res.status}`);
@@ -94,31 +105,39 @@ export class PackClient {
       nonce: base64ToBytes(f.nonce_b64),
       tag: base64ToBytes(f.tag_b64),
     }));
-    onProgress?.(1);
-    return {
+    this.bundleCache.set(packId, {
       packId: envelope.pack_id,
       manifestBytes: base64ToBytes(envelope.manifest_bytes_b64),
       signatureBytes: base64ToBytes(envelope.signature_bytes_b64),
       files,
-    };
+    });
+    onProgress?.(1);
+  }
+
+  /** Debug/test accessor for a previously-downloaded bundle. */
+  downloadedBundle(packId: string): PackBytes | undefined {
+    return this.bundleCache.get(packId);
   }
 
   /**
-   * 2-arg unlock per FS-ISS-009 spec: fetch the bundle, exchange the
-   * JWT for the pack key, decrypt, OPFS-write. Internally delegates
-   * to `unlockWithBytes` once the download completes.
+   * 2-arg unlock per FS-ISS-009: download + entitle + decrypt +
+   * OPFS-write. Throws on any failure — errors propagate through
+   * the normal Promise rejection path so the caller's `try/catch`
+   * handles them as JS exceptions.
    */
-  async unlock(packId: string, jwt: string): Promise<UnlockOutcome> {
-    let packBytes: PackBytes;
-    try {
-      packBytes = await this.download(packId);
-    } catch (err) {
-      return {
-        kind: 'manifest-rejected',
-        message: err instanceof Error ? err.message : String(err),
-      };
+  async unlock(packId: string, jwt: string): Promise<void> {
+    let packBytes = this.bundleCache.get(packId);
+    if (!packBytes) {
+      await this.download(packId);
+      packBytes = this.bundleCache.get(packId);
     }
-    return this.unlockWithBytes(packId, jwt, packBytes);
+    if (!packBytes) {
+      throw new Error(`unlock: no bundle for pack '${packId}'`);
+    }
+    const outcome = await this.unlockWithBytes(packId, jwt, packBytes);
+    if (outcome.kind !== 'ok') {
+      throw new UnlockError(outcome);
+    }
   }
 
   /**

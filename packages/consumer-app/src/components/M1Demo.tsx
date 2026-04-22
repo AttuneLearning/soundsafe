@@ -8,7 +8,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAudioEngine } from '@soundsafe/audio-graph-ts';
-import type { PackBytes } from '@soundsafe/pack-client';
 import { useAudioServices } from '../audio-context.js';
 
 type LoadState = 'unloaded' | 'loading' | 'loaded' | 'failed';
@@ -30,26 +29,11 @@ const STARTER_ROADMAP = {
 };
 
 /**
- * M1 uses an in-memory hello-pack stub until M2 wires the real
- * CDN fetch. The shape matches `PackBytes`; the real values are
- * irrelevant to the M1 demo since the default rustcore bridge is a
- * no-op that returns echoed plaintext.
+ * Whether the default app-services fetch is pre-wired for
+ * `unlock('hello', mockJwt)` (MSW in dev, real CDN in prod). The
+ * consumer app's boot code installs MSW when `isWebAudioAvailable()`
+ * is false (happy-dom tests) or when a demo flag is on.
  */
-function mockHelloPackBytes(): PackBytes {
-  return {
-    packId: 'hello',
-    manifestBytes: new TextEncoder().encode('{"pack_id":"hello"}'),
-    signatureBytes: new Uint8Array(64),
-    files: [
-      {
-        path: 'audio/01-bark.opus.enc',
-        ciphertext: new Uint8Array(256),
-        nonce: new Uint8Array(12),
-        tag: new Uint8Array(16),
-      },
-    ],
-  };
-}
 
 export function M1Demo(): JSX.Element {
   const { engine, packClient } = useAudioServices();
@@ -69,14 +53,10 @@ export function M1Demo(): JSX.Element {
     setLoadState('loading');
     setLoadError(null);
     try {
-      const outcome = await packClient.unlockWithBytes(
-        'hello',
-        MOCK_JWT,
-        mockHelloPackBytes(),
-      );
-      if (outcome.kind !== 'ok') {
-        throw new Error(`pack unlock failed: ${outcome.kind}`);
-      }
+      // Public 2-arg unlock path per FS-ISS-009: fetches the bundle
+      // from the CDN (MSW in dev + test), exchanges the JWT, decrypts
+      // via rust-core, writes OPFS. Throws on failure.
+      await packClient.unlock('hello', MOCK_JWT);
       await engine.loadRoadmap(STARTER_ROADMAP);
       setLoadState('loaded');
     } catch (err) {

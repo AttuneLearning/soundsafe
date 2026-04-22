@@ -1,6 +1,6 @@
 // @soundsafe/pack-client — pack download, entitlement, decrypt, OPFS.
 
-export { PackClient } from './client.js';
+export { PackClient, UnlockError } from './client.js';
 export type { PackClientDeps } from './client.js';
 export type {
   DecryptedFile,

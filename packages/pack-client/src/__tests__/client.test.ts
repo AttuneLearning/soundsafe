@@ -215,8 +215,26 @@ describe('PackClient', () => {
           new Response(JSON.stringify({ packKeyBase64: SAMPLE_KEY_BASE64 }), { status: 200 }),
       }),
     });
-    const outcome = await new PackClient(d).unlock('hello', 'jwt');
-    expect(outcome).toEqual({ kind: 'ok' });
+    await new PackClient(d).unlock('hello', 'jwt');
+  });
+
+  it('2-arg unlock throws UnlockError on entitlement denial', async () => {
+    const envelope = {
+      pack_id: 'hello',
+      manifest_bytes_b64: globalThis.btoa(String.fromCharCode(...SAMPLE_MANIFEST)),
+      signature_bytes_b64: globalThis.btoa(String.fromCharCode(...SAMPLE_SIG)),
+      files: [] as unknown[],
+    };
+    const d = deps({
+      fetch: fetchStub({
+        '/packs/hello/latest.zip': () =>
+          new Response(JSON.stringify(envelope), { status: 200 }),
+        '/entitlement': () => new Response('forbidden', { status: 403 }),
+      }),
+    });
+    await expect(new PackClient(d).unlock('hello', 'jwt')).rejects.toMatchObject({
+      name: 'UnlockError',
+    });
   });
 
   it('openSound returns a ReadableStream the caller can drain', async () => {

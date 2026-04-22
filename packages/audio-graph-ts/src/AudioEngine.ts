@@ -11,6 +11,7 @@
 // vitest + happy-dom tests swap in `InMemoryHost` to drive the state
 // machine deterministically.
 
+import { Manifest as RoadmapZod } from '@soundsafe/roadmap-schema';
 import type {
   AudioEvent,
   AudioEventKind,
@@ -20,6 +21,7 @@ import type {
 } from './messages.js';
 import { createFastRingReader, createFastRingSab } from './fast-ring.js';
 import type { FastRingEvent } from './fast-ring.js';
+import { WebAudioHost } from './WebAudioHost.js';
 
 export type ParamPath = `chain[${number}].${string}`;
 
@@ -45,6 +47,11 @@ export interface AudioEngineConfig {
   bundledPublicKey: Uint8Array;
   workletUrl: string;
   wasmUrl: string;
+  /**
+   * Optional ramp-up duration in ms. Defaults to 3000 (ADR-015).
+   * Pinned per session; live-tunable rails are a Tier-2 concern.
+   */
+  rampMs?: number;
 }
 
 export interface AudioEngineHost {
@@ -68,14 +75,14 @@ const DEFAULT_PARAM_TABLE: ReadonlyArray<ParamSpec> = [
 
 export class AudioEngine {
   private state: AudioEngineState = 'uninitialized';
-  private readonly host: AudioEngineHost;
+  private host: AudioEngineHost | null;
+  private fastRingReader: ReturnType<typeof createFastRingReader> | null = null;
   private readonly subscribers = new Map<
     AudioEventKind,
     Set<(p: AudioEvent) => void>
   >();
   private readonly stateSubscribers = new Set<(s: AudioEngineState) => void>();
   private readonly paramTable: ReadonlyArray<ParamSpec>;
-  private readonly fastRingReader: ReturnType<typeof createFastRingReader>;
   private unsubscribeInbound: Unsubscribe | null = null;
   private samples = 0;
   private levelDb = -120;
@@ -83,28 +90,61 @@ export class AudioEngine {
   private rampMs = 3_000;
   private rampTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(host: AudioEngineHost, paramTable = DEFAULT_PARAM_TABLE) {
-    this.host = host;
+  /**
+   * Pass a host for tests (e.g. `InMemoryHost`) or omit to let
+   * `init()` own the full browser/worklet boot path via an internal
+   * `WebAudioHost` (the production path — FS-ISS-008).
+   */
+  constructor(host?: AudioEngineHost, paramTable = DEFAULT_PARAM_TABLE) {
+    this.host = host ?? null;
     this.paramTable = paramTable;
-    this.fastRingReader = createFastRingReader(host.fastRing);
+    if (host) {
+      this.fastRingReader = createFastRingReader(host.fastRing);
+    }
   }
 
   /** Return the current lifecycle state (not reactive — pass the
    * return value through `useSyncExternalStore`). */
   currentState(): AudioEngineState { return this.state; }
 
-  /** Boot the worklet; resolves when the worklet posts `{kind:'ready'}`. */
+  private requireHost(): AudioEngineHost {
+    if (!this.host) {
+      throw new Error('AudioEngine: call init(...) before using the engine.');
+    }
+    return this.host;
+  }
+
+  /**
+   * Boot the audio stack. Per FS-ISS-008, `AudioEngine` owns:
+   *   1. `AudioContext` creation (via `WebAudioHost`),
+   *   2. `audioWorklet.addModule(workletUrl)` registration,
+   *   3. `AudioWorkletNode` instantiation,
+   *   4. WASM load via the worklet's `init` handler, and
+   *   5. the fast-ring SAB allocation.
+   *
+   * When the caller supplied a host to the constructor (tests),
+   * `init()` reuses it and skips the `WebAudioHost` path.
+   */
   async init(config: AudioEngineConfig): Promise<void> {
     this.sampleRate = config.sampleRate;
+    this.rampMs = config.rampMs ?? 3_000;
+    if (!this.host) {
+      this.host = new WebAudioHost({
+        workletUrl: config.workletUrl,
+        sampleRate: config.sampleRate,
+      });
+      this.fastRingReader = createFastRingReader(this.host.fastRing);
+    }
     this.transition('initializing');
     const ready = this.once('ready');
-    this.host.postToWorklet({
+    const host = this.host;
+    host.postToWorklet({
       kind: 'init',
       sampleRate: config.sampleRate,
       blockSize: config.blockSize,
       bundledPublicKey: config.bundledPublicKey,
     });
-    this.unsubscribeInbound = this.host.onInbound((msg) => this.handleInbound(msg));
+    this.unsubscribeInbound = host.onInbound((msg) => this.handleInbound(msg));
     await ready;
     this.transition('idle');
   }
@@ -117,7 +157,7 @@ export class AudioEngine {
    * matches the real path.
    */
   async play(): Promise<void> {
-    await this.host.resume();
+    await this.requireHost().resume();
     if (this.state === 'idle' || this.state === 'panicked' || this.state === 'errored') {
       this.transition('ramping');
       // Drive the ramp → playing transition locally; the audio
@@ -138,7 +178,7 @@ export class AudioEngine {
       clearTimeout(this.rampTimer);
       this.rampTimer = null;
     }
-    await this.host.suspend();
+    await this.requireHost().suspend();
     if (this.state === 'playing' || this.state === 'ramping') {
       this.transition('idle');
     }
@@ -150,7 +190,7 @@ export class AudioEngine {
    */
   async loadRoadmapStep(stepJson: string): Promise<void> {
     const started = this.once('StepStarted');
-    this.host.postToWorklet({ kind: 'playStep', stepJson });
+    this.requireHost().postToWorklet({ kind: 'playStep', stepJson });
     await started;
   }
 
@@ -160,11 +200,26 @@ export class AudioEngine {
    * wire format stays consistent.
    */
   async loadRoadmap(
-    roadmap: string | { id: string; steps: ReadonlyArray<unknown> },
+    roadmap: string | Record<string, unknown>,
   ): Promise<void> {
-    const json = typeof roadmap === 'string' ? roadmap : JSON.stringify(roadmap);
+    const parsed = typeof roadmap === 'string' ? JSON.parse(roadmap) : roadmap;
+    // FS-ISS-008: zod-validate before shipping the roadmap to the
+    // worklet so a malformed roadmap fails with a clear error on the
+    // main thread instead of silently misbehaving in the audio
+    // callback. Roadmap is a subset of the pack Manifest schema.
+    const validation = RoadmapZod.safeParse({
+      pack_id: 'inline-roadmap',
+      version: '0',
+      min_app_version: '0.0.0',
+      tier_required: 'free',
+      files: [],
+      roadmaps: [parsed],
+    });
+    if (!validation.success) {
+      throw new Error(`AudioEngine.loadRoadmap: invalid roadmap — ${validation.error.message}`);
+    }
     const started = this.once('StepStarted');
-    this.host.postToWorklet({ kind: 'loadRoadmap', roadmapJson: json });
+    this.requireHost().postToWorklet({ kind: 'loadRoadmap', roadmapJson: JSON.stringify(parsed) });
     await started;
   }
 
@@ -184,6 +239,7 @@ export class AudioEngine {
   }
 
   private drainFastRing(): void {
+    if (!this.fastRingReader) return;
     for (const ev of this.fastRingReader.poll()) {
       if (ev.kind === 'playhead') {
         this.samples = ev.samples;
@@ -205,7 +261,7 @@ export class AudioEngine {
     if (!spec) {
       throw new Error(`unknown param path: ${path}`);
     }
-    this.host.postToWorklet({
+    this.requireHost().postToWorklet({
       kind: 'setParam',
       nodeId: spec.nodeId,
       paramId: spec.paramId,
@@ -225,7 +281,7 @@ export class AudioEngine {
     }
     this.transition('fading');
     const done = this.once('PanicFadeComplete');
-    this.host.postToWorklet({ kind: 'panicStop' });
+    this.requireHost().postToWorklet({ kind: 'panicStop' });
     await done;
     this.transition('panicked');
   }
@@ -253,16 +309,16 @@ export class AudioEngine {
 
   /** Poll the SAB fast-ring. Called on `requestAnimationFrame`. */
   pollFastRing(): FastRingEvent[] {
-    return this.fastRingReader.poll();
+    return this.fastRingReader?.poll() ?? [];
   }
 
   droppedFastRingEvents(): number {
-    return this.fastRingReader.droppedEvents();
+    return this.fastRingReader?.droppedEvents() ?? 0;
   }
 
   async close(): Promise<void> {
-    this.host.postToWorklet({ kind: 'close' });
-    await this.host.close();
+    this.requireHost().postToWorklet({ kind: 'close' });
+    await this.requireHost().close();
     this.unsubscribeInbound?.();
   }
 
@@ -313,7 +369,7 @@ export class AudioEngine {
       };
       for (const k of kinds) {
         if (k === 'ready') {
-          const u = this.host.onInbound((msg) => {
+          const u = this.requireHost().onInbound((msg) => {
             if (msg.kind === 'ready') {
               done();
             }

@@ -144,13 +144,17 @@ pub fn load_roadmap(roadmap_json: &str) -> Result<(), JsValue> {
 /// tag_b64: string}` records. It is accepted as `JsValue` rather
 /// than a pre-serialized string so the worker can hand over decoded
 /// objects directly.
+/// Composite pack loader. Returns `Ok(())` on success per the
+/// FS-ISS-007 spec; the decrypted plaintext is queued internally
+/// and drained by the worker via `decryptedFileCount()` +
+/// `takeDecryptedFile()`.
 #[wasm_bindgen(js_name = loadPack)]
 pub fn load_pack(
     manifest_bytes: &[u8],
     signature_bytes: &[u8],
     encrypted_files: JsValue,
     pack_key_bytes: &js_sys::Uint8Array,
-) -> Result<String, JsValue> {
+) -> Result<(), JsValue> {
     let files_json = js_sys::JSON::stringify(&encrypted_files)
         .map(|s| String::from(s))
         .map_err(|_| JsValue::from_str("loadPack: encrypted_files is not JSON-serializable"))?;
@@ -159,15 +163,34 @@ pub fn load_pack(
     let result = with_engine(|engine| {
         engine.load_pack(manifest_bytes, signature_bytes, &bytes, &files_json)
     });
-    // ADR-010: zero the JS-side buffer immediately. Transient Rust
-    // copy + vault copy are Zeroize-dropped.
     pack_key_bytes.fill(0, 0, pack_key_bytes.length());
     let mut scratch = bytes;
     for b in scratch.iter_mut() { *b = 0; }
     drop(scratch);
-    let decrypted = result?;
-    serde_json::to_string(&decrypted)
-        .map_err(|e| JsValue::from_str(&alloc::format!("json encode: {e}")))
+    result
+}
+
+/// Number of decrypted pack files queued by the most recent
+/// successful `loadPack`. Workers use this to drive their
+/// OPFS-write loop.
+#[wasm_bindgen(js_name = decryptedFileCount)]
+pub fn decrypted_file_count() -> Result<usize, JsValue> {
+    with_engine_ref(|engine| Ok(engine.decrypted_file_count()))
+}
+
+/// Remove and return the next decrypted file as JSON
+/// (`{path, plaintext_len, plaintext_b64}`), or `null` when the
+/// queue is empty.
+#[wasm_bindgen(js_name = takeDecryptedFile)]
+pub fn take_decrypted_file() -> Result<Option<String>, JsValue> {
+    with_engine(|engine| {
+        match engine.take_decrypted_file() {
+            Some(f) => serde_json::to_string(&f)
+                .map(Some)
+                .map_err(|e| engine::EngineError::Json(e.to_string())),
+            None => Ok(None),
+        }
+    })
 }
 
 /// Most recent post-limiter peak in dBFS. Surfaces `-120.0` for
