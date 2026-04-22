@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** BLOCKED
+**QA:** PENDING_MANUAL_REVIEW
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.8)
@@ -210,3 +210,11 @@ Gate verification (local, all green):
 - Files: `packages/pack-client/{package.json,eslint.config.js}`, `packages/pack-client/src/{worker,worker-protocol,client,index}.ts`, `packages/pack-client/src/__mocks__/handlers.ts`, `packages/pack-client/src/__tests__/lint-createobjecturl.test.ts`.
 - Commit: `f60de36` ("FS-ISS-007/008/009 unblock: full M1.6/M1.7/M1.8 implementation")
 - Push: pushed to `origin/main` as commit `f60de36` on 2026-04-22.
+
+## QA Verification (2026-04-22T21:15:02Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present

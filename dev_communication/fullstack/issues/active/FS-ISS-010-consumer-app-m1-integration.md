@@ -2,7 +2,7 @@
 
 **Priority:** High
 **Status:** ACTIVE
-**QA:** BLOCKED
+**QA:** PENDING_MANUAL_REVIEW
 **Created:** 2026-04-20
 **Started:** 2026-04-21
 **Requested By:** Fullstack-Dev (per m1-phases.md M1.9)
@@ -178,3 +178,11 @@ Gate verification (local, all green):
 - Files: `packages/consumer-app/src/components/M1Demo.tsx`, `packages/consumer-app/src/__tests__/App.test.tsx`.
 - Commit: `c44ac0b` ("FS-ISS-010/011 unblock: unlock integration + DOM telemetry + retries=0")
 - Push: pushed to `origin/main` as commit `c44ac0b` on 2026-04-22.
+
+## QA Verification (2026-04-22T21:15:09Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present
