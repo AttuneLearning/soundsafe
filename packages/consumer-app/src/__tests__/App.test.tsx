@@ -36,11 +36,24 @@ function buildServices() {
     decryptFile: async (c) => new Uint8Array(c),
     clearPackKey: async () => {},
   };
+  // A 32-byte key base64 for the in-memory entitlement endpoint.
+  const KEY_B64 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+  const stubFetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.endsWith('/entitlement')) {
+      return new Response(JSON.stringify({ packKeyBase64: KEY_B64 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response('', { status: 404 });
+  }) as typeof fetch;
   const packClient = new PackClient({
-    fetch: (async () => new Response('', { status: 404 })) as typeof fetch,
+    fetch: stubFetch,
     rustcore,
     opfs: new InMemoryOpfsStore(),
     opfsIndex: new InMemoryOpfsIndex(),
+    sha256: async () => 'stub',
   });
   return { engine, packClient, host };
 }
@@ -90,11 +103,15 @@ describe('M1 demo wiring', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByTestId('m1-load'));
-      // loadRoadmapStep awaits a StepStarted event.
+      // packClient.unlock awaits a fetch + several microtasks. Flush
+      // the queue, then emit StepStarted so engine.loadRoadmap resolves.
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
       host.emitInbound({
         kind: 'events',
         events: [{ kind: 'StepStarted', index: 0 }],
       });
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     expect(play.disabled).toBe(false);
@@ -118,6 +135,61 @@ describe('M1 demo wiring', () => {
 
     fireEvent.click(screen.getByTestId('panic-stop'));
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('load routes through packClient.unlock before engine.loadRoadmap', async () => {
+    localStorage.setItem(DISCLAIMER_KEY, new Date().toISOString());
+    const { engine, host, packClient } = buildServices();
+    const unlockSpy = vi.spyOn(packClient, 'unlock');
+    const loadRoadmapSpy = vi.spyOn(engine, 'loadRoadmap');
+
+    void engine.init({
+      sampleRate: 48_000,
+      blockSize: 128,
+      bundledPublicKey: new Uint8Array(32),
+      workletUrl: 'about:blank',
+      wasmUrl: 'about:blank',
+    });
+    host.emitInbound({ kind: 'ready' });
+
+    renderApp({ services: { engine, packClient } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('m1-load'));
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      host.emitInbound({
+        kind: 'events',
+        events: [{ kind: 'StepStarted', index: 0 }],
+      });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(unlockSpy).toHaveBeenCalledWith('hello', expect.any(String), expect.any(Object));
+    expect(loadRoadmapSpy).toHaveBeenCalled();
+    // unlock ran before loadRoadmap.
+    const unlockOrder = unlockSpy.mock.invocationCallOrder[0] ?? -1;
+    const loadOrder = loadRoadmapSpy.mock.invocationCallOrder[0] ?? -1;
+    expect(unlockOrder).toBeGreaterThan(0);
+    expect(loadOrder).toBeGreaterThan(unlockOrder);
+  });
+
+  it('renders playhead + peak-level indicators', async () => {
+    localStorage.setItem(DISCLAIMER_KEY, new Date().toISOString());
+    const { engine, host, packClient } = buildServices();
+    void engine.init({
+      sampleRate: 48_000,
+      blockSize: 128,
+      bundledPublicKey: new Uint8Array(32),
+      workletUrl: 'about:blank',
+      wasmUrl: 'about:blank',
+    });
+    host.emitInbound({ kind: 'ready' });
+    renderApp({ services: { engine, packClient } });
+
+    expect(screen.getByTestId('m1-playhead')).toBeTruthy();
+    expect(screen.getByTestId('m1-level-db')).toBeTruthy();
+    expect(screen.getByTestId('m1-engine-state')).toBeTruthy();
   });
 
   it('shows the Grounding button after PanicFadeComplete', async () => {

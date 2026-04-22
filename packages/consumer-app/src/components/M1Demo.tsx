@@ -1,33 +1,59 @@
-// M1 demo view: Load Hello Pack → Play/Pause → Panic-Stop → Grounding.
+// M1 demo view: disclaimer → load hello pack → play → panic → grounding.
 //
-// Ugly on purpose — this is the wiring verification screen, not the
-// Tier-3 UI (which lands in M2). Per FS-ISS-010 acceptance, no SUDS
-// input, no chain editor, no library browser.
+// Wiring verification screen — intentionally plain. Per FS-ISS-010 the
+// load path exercises the real pack client (`unlock('hello', mockJwt)`)
+// followed by `engine.loadRoadmap(starterRoadmap)`. Live playhead and
+// peak-level indicators drive from the fast-ring-backed
+// `useAudioEngine()` hook.
 
 import { useCallback, useEffect, useState } from 'react';
-import { useAudioEngineState } from '@soundsafe/audio-graph-ts';
+import { useAudioEngine } from '@soundsafe/audio-graph-ts';
+import type { PackBytes } from '@soundsafe/pack-client';
 import { useAudioServices } from '../audio-context.js';
 
 type LoadState = 'unloaded' | 'loading' | 'loaded' | 'failed';
 
-const STARTER_STEP_JSON = JSON.stringify({
-  source_id: 'dog-bark',
-  transforms: [
+const MOCK_JWT = 'm1.demo.mock-jwt';
+
+const STARTER_ROADMAP = {
+  id: 'hello',
+  steps: [
     {
-      kind: 'gain',
-      params: [
-        { id: 1, value: -12.0 },
-        { id: 2, value: 20 },
+      source_id: 'dog-bark',
+      transforms: [
+        { kind: 'gain', params: [{ id: 1, value: -12 }, { id: 2, value: 20 }] },
       ],
+      duration_ms: 30_000,
+      advance_ms: 30_000,
     },
   ],
-  duration_ms: 30_000,
-  advance_ms: 30_000,
-});
+};
+
+/**
+ * M1 uses an in-memory hello-pack stub until M2 wires the real
+ * CDN fetch. The shape matches `PackBytes`; the real values are
+ * irrelevant to the M1 demo since the default rustcore bridge is a
+ * no-op that returns echoed plaintext.
+ */
+function mockHelloPackBytes(): PackBytes {
+  return {
+    packId: 'hello',
+    manifestBytes: new TextEncoder().encode('{"pack_id":"hello"}'),
+    signatureBytes: new Uint8Array(64),
+    files: [
+      {
+        path: 'audio/01-bark.opus.enc',
+        ciphertext: new Uint8Array(256),
+        nonce: new Uint8Array(12),
+        tag: new Uint8Array(16),
+      },
+    ],
+  };
+}
 
 export function M1Demo(): JSX.Element {
-  const { engine } = useAudioServices();
-  const engineState = useAudioEngineState(engine);
+  const { engine, packClient } = useAudioServices();
+  const { state: engineState, playhead, levelDb } = useAudioEngine(engine);
   const [loadState, setLoadState] = useState<LoadState>('unloaded');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [groundingVisible, setGroundingVisible] = useState(false);
@@ -43,21 +69,20 @@ export function M1Demo(): JSX.Element {
     setLoadState('loading');
     setLoadError(null);
     try {
-      await engine.loadRoadmapStep(STARTER_STEP_JSON);
+      const outcome = await packClient.unlock('hello', MOCK_JWT, mockHelloPackBytes());
+      if (outcome.kind !== 'ok') {
+        throw new Error(`pack unlock failed: ${outcome.kind}`);
+      }
+      await engine.loadRoadmap(STARTER_ROADMAP);
       setLoadState('loaded');
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
       setLoadState('failed');
     }
-  }, [engine]);
+  }, [engine, packClient]);
 
-  const handlePlay = useCallback(() => {
-    void engine.play();
-  }, [engine]);
-
-  const handlePause = useCallback(() => {
-    void engine.pause();
-  }, [engine]);
+  const handlePlay = useCallback(() => { void engine.play(); }, [engine]);
+  const handlePause = useCallback(() => { void engine.pause(); }, [engine]);
 
   const playDisabled = loadState !== 'loaded' || engineState === 'panicked';
   const pauseDisabled = engineState !== 'playing';
@@ -65,9 +90,25 @@ export function M1Demo(): JSX.Element {
   return (
     <section className="m1-demo" aria-labelledby="m1-demo-heading">
       <h1 id="m1-demo-heading">M1 demo · hello pack</h1>
+
+      {/*
+        Engine state and levelDb are rendered with data-testid hooks
+        so the Playwright E2E (FS-ISS-011) can assert the full
+        transition graph `idle → playing → panicking → panicked`
+        without needing an internal TS accessor.
+      */}
       <p className="m1-demo__engine-state">
-        Engine state: <strong>{engineState}</strong>
+        Engine state: <strong data-testid="m1-engine-state">{engineState}</strong>
       </p>
+
+      <div className="m1-demo__indicators" aria-live="polite">
+        <span className="m1-demo__playhead">
+          Playhead: <strong data-testid="m1-playhead">{playhead.toFixed(2)}s</strong>
+        </span>
+        <span className="m1-demo__level">
+          Peak: <strong data-testid="m1-level-db">{formatLevel(levelDb)}</strong>
+        </span>
+      </div>
 
       <div className="m1-demo__controls">
         <button
@@ -101,7 +142,7 @@ export function M1Demo(): JSX.Element {
       </div>
 
       {loadError !== null && (
-        <p className="m1-demo__error" role="alert">
+        <p className="m1-demo__error" role="alert" data-testid="m1-load-error">
           Load failed: {loadError}
         </p>
       )}
@@ -118,4 +159,9 @@ export function M1Demo(): JSX.Element {
       )}
     </section>
   );
+}
+
+function formatLevel(db: number): string {
+  if (db <= -119) return '−∞ dBFS';
+  return `${db.toFixed(1)} dBFS`;
 }
