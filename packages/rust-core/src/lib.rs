@@ -235,3 +235,30 @@ pub fn process_block(input: &[f32]) -> Result<alloc::vec::Vec<f32>, JsValue> {
 // cargo tests exercise the `engine` module directly; wasm-bindgen
 // boundary tests live in `tests/sanity.rs` and run under
 // `wasm-pack test`.
+
+// --- Test-only utility exports -------------------------------------
+//
+// Gated on `debug_assertions` so they ship in `wasm-pack test` builds
+// (debug profile, assertions on) but are stripped from production
+// `wasm-pack build --release` artifacts. The `__` prefix makes the
+// non-production status explicit on the JS side.
+
+/// Reset the thread-local engine to `None` so subsequent calls hit the
+/// `NotInitialized` error path. Used by the `tests/sanity.rs` boundary
+/// tests to prove pre-init failure behavior — see FS-ISS-007 acceptance
+/// criteria.
+#[cfg(debug_assertions)]
+#[wasm_bindgen(js_name = __clearEngineForTests)]
+pub fn __clear_engine_for_tests() {
+    ENGINE.with(|cell| *cell.borrow_mut() = None);
+}
+
+/// Trigger a Rust panic with the supplied message. Paired with a
+/// `#[should_panic(expected = ...)]` wasm-bindgen-test that proves the
+/// `console_error_panic_hook` install path actually surfaces panics as
+/// JS exceptions (FS-ISS-007).
+#[cfg(debug_assertions)]
+#[wasm_bindgen(js_name = __panicForTests)]
+pub fn __panic_for_tests(msg: &str) {
+    panic!("{msg}");
+}
