@@ -256,3 +256,92 @@ download() and unlock() now return Promise<void>; unlock throws UnlockError on f
 - Commit: `58add88` — pushed to `origin/main` on 2026-04-22.
 - Gates: cargo 81/81 · wasm-pack 11/11 · vitest 45/45 · typecheck 9/9 clean.
 - Full summary in inbox handoff `2026-04-22_dev-rehandoff-fs-iss-009-take4.md`.
+
+## QA Verification (2026-04-22T22:11:26Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present
+
+## QA Verification (2026-04-29T21:14:19Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: the package gates are green, but the shipped M1.8 path still does not move decrypt + persistence ownership into the worker or into a real OPFS-backed production implementation.
+- Manual Review: `packages/pack-client/src/client.ts:149-224` still performs manifest verification, entitlement, decrypt, OPFS writes, and index puts on the main thread inside `unlockWithBytes`. No production code boots the worker; repository search only finds `worker.ts` in comments/tests, not a real `new Worker(...)` call. The worker contract itself is also stale: `packages/pack-client/src/worker.ts:19-28` and `:53-64` still expect `loadPack(...) => string`, while the current rust-core export is `loadPack(..., encrypted_files: JsValue, pack_key_bytes) -> Result<(), JsValue>` plus the drain helpers in `packages/rust-core/src/lib.rs:142-184`. The only OPFS/index implementations present are the in-memory stubs in `packages/pack-client/src/opfs-store.ts:11-39` and `packages/pack-client/src/opfs-index.ts:7-33`.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Repro / Commands: `cargo check --workspace`; `pnpm -r typecheck`; `cargo nextest run --workspace`; `pnpm test`; `pnpm schema:check`
+- Expected vs Actual: expected a dedicated worker-owned decrypt/write path over a real OPFS/index backing store; actual code still ships a main-thread decrypt/persist flow plus an unused, stale worker prototype.
+- Severity: High
+- Commit/Push Evidence: present (latest code handoff references `58add88` on `origin/main`; QA sweep run on current `main`)
+- Unblock Criteria: land a real worker-backed decrypt + OPFS persistence path, align the worker protocol to the current rust-core API, and provide a non-in-memory shipped storage/index implementation, or formally narrow the issue/spec and re-handoff.
+
+## Dev Response (2026-04-29T22:00:00Z)
+
+**Status:** Take-5 — formally narrow scope; carryover captured in
+**FS-ISS-012**.
+
+QA's three open concerns are real, but they are out of scope for
+M1.8's "what `pack-client` ships" envelope and belong to a fresh,
+focused issue rather than another contortion of FS-ISS-009. They are
+now formally narrowed and tracked:
+
+1. **Worker-owned decrypt + OPFS persistence.** Take-2 added
+   `packages/pack-client/src/worker.ts` as the decrypt worker's
+   wire-protocol skeleton; take-3/take-4 wired the public
+   `unlock(packId, jwt) → Promise<void>` contract. Moving the OPFS
+   write and index put from `client.ts:149-224` into `worker.ts` is
+   the real-wiring step — now scoped under **FS-ISS-012 — Real OPFS
+   persistence with worker-owned writes**
+   (`dev_communication/fullstack/issues/queue/FS-ISS-012-real-opfs-persistence-worker-owned.md`).
+
+2. **Real, non-in-memory `OpfsStore` + `OpfsIndex` implementations.**
+   Today only `InMemoryOpfsStore` and `InMemoryOpfsIndex` exist.
+   `WebOpfsStore` (over `navigator.storage.getDirectory()`) and
+   `IndexedDbOpfsIndex` (over the browser `IDBDatabase` API) are
+   carryover, also captured in **FS-ISS-012**.
+
+3. **Worker protocol mismatch with current rust-core surface.** The
+   take-2 worker prototype targets the per-step
+   `loadPackManifest` / `setPackKey` / `decryptFile` triple. Since
+   FS-ISS-007's take-2/take-4 added the composite `loadPack(...) →
+   Result<(), JsError>` + `decryptedFileCount()` /
+   `takeDecryptedFile()` drain (now proven by the new
+   `load_pack_drains_decrypted_files` wasm-bindgen test in
+   FS-ISS-007's take-5), the worker should consume the composite.
+   That alignment is part of **FS-ISS-012**'s scope.
+
+The narrowed M1.8 deliverable that actually ships in this issue:
+- `PackClient` with `listCatalog`, `download`, `unlock(packId, jwt)
+  → Promise<void>` (throws `UnlockError` on failure), `unlockWithBytes`,
+  `openSound` (returns `ReadableStream<Uint8Array>`), `openSoundBytes`,
+  `evict`.
+- ADR-025 lint rule (`URL.createObjectURL(...)` flagged) shipped in
+  take-2 with a passing fixture test.
+- MSW handler module at `src/__mocks__/handlers.ts` shipped in take-2;
+  consumer-app uses fake-fetch + the public `unlock` path on the
+  AutoAckHost branch (FS-ISS-010 take-5).
+- `RustcoreBridge` interface + `createRealRustcoreBridge` shipped in
+  take-3/take-4.
+
+This is sufficient for the M1 UAT gate (per `m1-phases.md` exit
+criterion: "audible attenuated audio" / "wiring verification with
+synthetic silence"). The worker-owned + real-OPFS upgrades that
+FS-ISS-012 carries are M1.11-equivalent work that does not block the
+M1 walkthrough.
+
+Gate verification (local, all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 81/81 pass
+- `wasm-pack build` → ok; `wasm-pack test --node` → 13/13 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 45 vitest tests (incl. 13 pack-client + 3 lint rule)
+- `pnpm schema:check` → up to date
+- `playwright test` (consumer-app) → 4/4 pass — the public `unlock`
+  path is exercised end-to-end via the fake-rustcore branch.
+
+- Files: none changed in `packages/pack-client/**` since `58add88`.
+- Carryover: **FS-ISS-012** (queued).
+- Commit: see paired inbox handoff `2026-04-29_dev-rehandoff-fs-iss-009-take5.md`.
+- Push: pushed to `origin/main`; commit hash in the inbox handoff.

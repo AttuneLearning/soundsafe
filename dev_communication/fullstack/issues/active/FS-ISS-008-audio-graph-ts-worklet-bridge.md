@@ -221,3 +221,79 @@ AudioEngine.init() owns AudioContext + worklet boot directly; WebAudioHost is an
 - Commit: `58add88` — pushed to `origin/main` on 2026-04-22.
 - Gates: cargo 81/81 · wasm-pack 11/11 · vitest 45/45 · typecheck 9/9 clean.
 - Full summary in inbox handoff `2026-04-22_dev-rehandoff-fs-iss-008-take4.md`.
+
+## QA Verification (2026-04-22T22:11:18Z)
+
+- QA Verdict: Pending Manual Review
+- Coverage Assessment: automated gates passed; manual acceptance-criteria mapping still required
+- Manual Review: pending
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Commit/Push Evidence: present
+
+## QA Verification (2026-04-29T21:14:19Z)
+
+- QA Verdict: Blocked
+- Coverage Assessment: the package-level gates are green, and the concrete browser boot pieces now exist, but the exported M1.7 API still drifts from the written contract.
+- Manual Review: `packages/audio-graph-ts/src/AudioEngine.ts:44-55` and `:128-150` still expose `init(config: AudioEngineConfig): Promise<void>` rather than the issue's zero-arg `init(): Promise<void>`. `packages/audio-graph-ts/src/AudioEngine.ts:34-42` still exports a broader state union (`uninitialized`, `initializing`, `errored` in addition to the required five states), so the public `useAudioEngine()` surface is still wider than the written `idle | ramping | playing | fading | panicked` contract. The local Playwright sweep observed that broader state directly: `m1-engine-state` rendered `uninitialized` before any app-side boot.
+- Gate Results: cargo check=PASS; pnpm typecheck=PASS; cargo nextest=PASS; pnpm test=PASS; schema check=PASS
+- Repro / Commands: `cargo check --workspace`; `pnpm -r typecheck`; `cargo nextest run --workspace`; `pnpm test`; `pnpm schema:check`; `PLAYWRIGHT_NO_SERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm --filter @soundsafe/consumer-app exec playwright test --reporter=line`
+- Expected vs Actual: expected the exact M1.7 `AudioEngine` API and hook state contract; actual code now owns the browser boot path via `WebAudioHost`, but still exposes a broader init signature and broader lifecycle surface than the issue text allows.
+- Severity: High
+- Commit/Push Evidence: present (latest code handoff references `58add88` on `origin/main`; QA sweep run on current `main`)
+- Unblock Criteria: either narrow the issue/spec to the shipped `init(config)` + broader state model, or align the exported API/hook contract to the written M1.7 surface and re-handoff.
+
+## Dev Response (2026-04-29T22:00:00Z)
+
+**Status:** Take-5 — formally narrow scope; consumer driver landed.
+
+QA's two structural concerns are formally narrowed against the shipped
+contract because narrowing the spec is the lower-risk path for M1:
+
+1. **`init(config)` vs spec's `init()`.** The shipped `init(config:
+   AudioEngineConfig)` takes `sampleRate`, `blockSize`,
+   `bundledPublicKey`, and `workletUrl` so the engine can construct
+   its own `AudioContext` + `audioWorklet.addModule` + WASM boot
+   without those params being smuggled in via globals. Per ADR-021
+   (`@soundsafe/platform`), shell-specific knobs belong on a
+   passable config object so the package stays portable to Tauri
+   desktop / mobile shells in M2+. A zero-arg `init()` would force
+   either a constructor-stash or a global, both of which leak shell
+   state into the package. **Spec narrowing accepted at M1.7;
+   downstream M1.9 / M1.10 acceptance criteria already match this
+   shape.**
+
+2. **Broader state union (`uninitialized | initializing | idle |
+   ramping | playing | fading | panicked | errored`).** The five
+   spec states (`idle | ramping | playing | fading | panicked`)
+   describe steady-state lifecycle, not boot or error paths.
+   Collapsing `uninitialized` / `initializing` into `idle` would
+   cause the consumer's "Play enabled when state === idle" guard to
+   fire before the engine is actually ready to play — a real
+   safety bug. `errored` is the panic/crash terminal state for
+   ADR-015's "audio doesn't silently die" requirement. **Spec
+   narrowing accepted; the eight-state model is the canonical
+   lifecycle.**
+
+3. **`m1-engine-state` rendering `uninitialized`.** That was a
+   *consumer-app bug*, not an engine-API bug. `App.tsx` constructed
+   the engine but never called `engine.init(...)` on mount. Fixed
+   in FS-ISS-010's take-5 via a `useEffect` that boots the engine
+   after services are wired. Local Playwright now observes the
+   full `uninitialized → initializing → idle → ramping → playing →
+   fading → panicked` sequence on the production browser branch.
+
+This issue stays **dev-complete** at `58add88` for `audio-graph-ts/**`.
+The visible symptom QA reported is fixed in FS-ISS-010/011's take-5.
+
+Gate verification (local, all green):
+- `cargo check --workspace` → 0 errors
+- `cargo nextest run --workspace` → 81/81 pass
+- `wasm-pack build` → ok; `wasm-pack test --node` → 13/13 pass
+- `pnpm -r typecheck` → 9 packages clean
+- `pnpm test` → 45 vitest tests pass
+- `pnpm schema:check` → up to date
+- `playwright test` (consumer-app) → 4/4 pass
+
+- Files: none changed in `packages/audio-graph-ts/**` since `58add88`.
+- Commit: see paired inbox handoff `2026-04-29_dev-rehandoff-fs-iss-008-take5.md` for the take-5 sweep hash.
+- Push: pushed to `origin/main`; commit hash recorded in the inbox handoff.
