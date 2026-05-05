@@ -195,8 +195,7 @@ impl Engine {
             block_size: block_size as usize,
         };
         let rails = SafetyRails::defaults();
-        let mut transforms: Vec<Box<dyn Transform>> = Vec::new();
-        transforms.push(Box::new(Gain::new()));
+        let transforms: Vec<Box<dyn Transform>> = vec![Box::new(Gain::new())];
         let graph = AudioGraph::new(config, rails, transforms);
 
         let runner = RoadmapRunner::new(

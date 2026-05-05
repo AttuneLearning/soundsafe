@@ -66,14 +66,13 @@ impl Gain {
     }
 
     fn clamp_db(db: f32) -> f32 {
+        // NaN guard: f32::clamp returns NaN for NaN input, which would
+        // poison the smoother. Keep our 0.0 fallback for non-finite
+        // values, then use clamp for the in-range case.
         if !db.is_finite() {
             0.0
-        } else if db < ATTENUATION_DB_MIN {
-            ATTENUATION_DB_MIN
-        } else if db > ATTENUATION_DB_MAX {
-            ATTENUATION_DB_MAX
         } else {
-            db
+            db.clamp(ATTENUATION_DB_MIN, ATTENUATION_DB_MAX)
         }
     }
 
@@ -246,8 +245,8 @@ mod tests {
             );
         }
         // After n samples we're at (or have reached) the target (1.0).
-        for i in n_samples..output.len() {
-            assert!((output[i] - 1.0).abs() < 1e-4, "tail sample {i} = {}", output[i]);
+        for (i, sample) in output.iter().enumerate().skip(n_samples) {
+            assert!((sample - 1.0).abs() < 1e-4, "tail sample {i} = {sample}");
         }
     }
 

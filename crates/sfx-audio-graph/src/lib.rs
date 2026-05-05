@@ -183,7 +183,7 @@ impl AudioGraph {
                 }
                 let elapsed = total_u - remaining + 1;
                 let progress = (elapsed as f32) / total_f;
-                let gain = if progress > 1.0 { 1.0 } else if progress < 0.0 { 0.0 } else { progress };
+                let gain = progress.clamp(0.0, 1.0);
                 *out *= gain;
                 remaining -= 1;
             }
@@ -406,7 +406,7 @@ mod tests {
                 let _ = graph.enqueue_param(ParamMessage::new(
                     0,
                     gain::ATTENUATION_DB,
-                    -1.0 * i as f32 / 10.0,
+                    -(i as f32) / 10.0,
                     0,
                 ));
             }

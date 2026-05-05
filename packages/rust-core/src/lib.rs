@@ -156,7 +156,7 @@ pub fn load_pack(
     pack_key_bytes: &js_sys::Uint8Array,
 ) -> Result<(), JsValue> {
     let files_json = js_sys::JSON::stringify(&encrypted_files)
-        .map(|s| String::from(s))
+        .map(String::from)
         .map_err(|_| JsValue::from_str("loadPack: encrypted_files is not JSON-serializable"))?;
 
     let bytes = pack_key_bytes.to_vec();
